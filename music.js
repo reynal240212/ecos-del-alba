@@ -107,6 +107,14 @@ class MusicEngine {
     }
   }
 
+  setVolume(ratio) {
+    const vol = Math.max(0, Math.min(1, ratio));
+    this.volumeRatio = vol;
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setValueAtTime(0.38 * vol, this.ctx.currentTime);
+    }
+  }
+
   setIntensity(level) {
     if (this.intensity !== level) {
       this.intensity = level;

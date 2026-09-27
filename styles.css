@@ -1070,3 +1070,597 @@ kbd {
     padding: 12px 16px;
   }
 }
+
+/* ==========================================================================
+   Perfil de Jugador en HUD & Barra de Experiencia (XP)
+   ========================================================================== */
+.profile-hud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(14, 34, 40, 0.75);
+  border: 1px solid rgba(85, 230, 240, 0.35);
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: #e3fbff;
+  transition: all 0.2s ease;
+}
+
+.profile-hud-badge:hover {
+  background: rgba(22, 60, 72, 0.85);
+  border-color: #5ff9ff;
+  transform: translateY(-1px);
+}
+
+.profile-avatar-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.profile-hud-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.profile-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #d8fbff;
+  white-space: nowrap;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.xp-mini-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.xp-tag {
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #5ef4ff;
+}
+
+.xp-bar-mini {
+  width: 48px;
+  height: 5px;
+  background: rgba(8, 20, 24, 0.8);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.xp-fill-mini {
+  height: 100%;
+  background: linear-gradient(90deg, #4ef2bb, #5df8ff);
+  transition: width 0.3s ease;
+}
+
+/* ==========================================================================
+   Pantalla de Inicio / Menú Principal (Ecos del Alba)
+   ========================================================================== */
+.menu-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  background: radial-gradient(circle at center, rgba(14, 28, 34, 0.88), rgba(5, 12, 14, 0.97));
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.main-menu-card {
+  background: linear-gradient(145deg, rgba(16, 36, 42, 0.95), rgba(9, 20, 24, 0.98));
+  border: 1px solid rgba(94, 244, 255, 0.4);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75), 0 0 24px rgba(94, 244, 255, 0.15);
+  max-width: 460px;
+  width: 100%;
+  padding: 32px 28px;
+  text-align: center;
+  animation: modalScale 0.28s ease-out;
+}
+
+.menu-brand .brand-tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #5ef4ff;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.menu-brand .brand-title {
+  font-family: Georgia, serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #f0fdff;
+  margin: 6px 0;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 20px rgba(94, 244, 255, 0.5);
+}
+
+.menu-brand .brand-desc {
+  font-size: 0.8rem;
+  color: #8bb0ae;
+  margin: 0 0 20px 0;
+}
+
+.menu-profile-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(8, 20, 24, 0.65);
+  border: 1px solid rgba(85, 230, 240, 0.25);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.menu-avatar-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.menu-profile-meta {
+  flex: 1;
+}
+
+.menu-profile-meta strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #ecfeff;
+}
+
+.menu-xp-line {
+  font-size: 0.74rem;
+  color: #5ef4ff;
+  font-weight: 600;
+}
+
+.menu-switch-btn {
+  padding: 6px 12px;
+  background: rgba(37, 214, 226, 0.2);
+  border: 1px solid rgba(85, 230, 240, 0.4);
+  border-radius: 6px;
+  color: #c9fbff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.menu-switch-btn:hover {
+  background: rgba(62, 235, 247, 0.35);
+  border-color: #5ff9ff;
+}
+
+.menu-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.menu-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: rgba(18, 44, 52, 0.7);
+  border: 1px solid rgba(94, 244, 255, 0.3);
+  color: #e0fbff;
+  transition: all 0.2s ease;
+}
+
+.menu-action-btn:hover {
+  background: rgba(30, 72, 85, 0.85);
+  border-color: #5ef4ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.menu-action-btn.primary {
+  background: linear-gradient(135deg, #1ba2ad, #2be2f0);
+  border-color: #79f8ff;
+  color: #031417;
+  font-size: 1.05rem;
+  font-weight: 800;
+  box-shadow: 0 4px 18px rgba(43, 226, 240, 0.35);
+}
+
+.menu-action-btn.primary:hover {
+  background: linear-gradient(135deg, #24becc, #5ff9ff);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.menu-footer-hint {
+  margin-top: 20px;
+  font-size: 0.68rem;
+  color: #6a8c8b;
+}
+
+/* ==========================================================================
+   Menú de Ajustes / Pausa & Sliders de Volumen
+   ========================================================================== */
+.settings-box {
+  max-width: 500px;
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.settings-section h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.82rem;
+  color: #5ef4ff;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: #c7e9e8;
+}
+
+.slider-val-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 55%;
+}
+
+.slider-val-wrap input[type="range"] {
+  flex: 1;
+  accent-color: #3fe9f7;
+  cursor: pointer;
+}
+
+.slider-val-wrap span {
+  font-size: 0.75rem;
+  color: #5ef4ff;
+  font-weight: 700;
+  width: 36px;
+  text-align: right;
+}
+
+.settings-select {
+  background: rgba(9, 24, 28, 0.8);
+  border: 1px solid rgba(85, 230, 240, 0.35);
+  border-radius: 6px;
+  color: #e0fbff;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.settings-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btn-settings-action {
+  padding: 10px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: rgba(18, 44, 52, 0.7);
+  border: 1px solid rgba(94, 244, 255, 0.3);
+  color: #e0fbff;
+  transition: all 0.2s ease;
+}
+
+.btn-settings-action:hover {
+  background: rgba(30, 72, 85, 0.85);
+  border-color: #5ef4ff;
+}
+
+.btn-settings-action.primary {
+  background: linear-gradient(135deg, #1ba2ad, #2be2f0);
+  border-color: #79f8ff;
+  color: #031417;
+}
+
+.btn-settings-action.danger {
+  background: rgba(120, 24, 38, 0.45);
+  border-color: rgba(240, 85, 105, 0.4);
+  color: #ffd8dc;
+}
+
+.btn-settings-action.danger:hover {
+  background: rgba(160, 32, 50, 0.65);
+  border-color: #ff556e;
+}
+
+/* ==========================================================================
+   Tienda de Avatar (Boutique Rúnica)
+   ========================================================================== */
+.wardrobe-box {
+  max-width: 620px;
+}
+
+.wardrobe-topbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.wardrobe-essence {
+  font-size: 0.88rem;
+  color: #92bfbe;
+  background: rgba(9, 25, 30, 0.7);
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(85, 230, 240, 0.25);
+}
+
+.wardrobe-essence strong {
+  color: #6cf7ff;
+  font-size: 1.05rem;
+}
+
+.wardrobe-nav-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.wardrobe-tab {
+  flex: 1;
+  padding: 8px 10px;
+  background: rgba(12, 30, 36, 0.6);
+  border: 1px solid rgba(85, 230, 240, 0.2);
+  border-radius: 6px;
+  color: #8eb3b2;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wardrobe-tab.active, .wardrobe-tab:hover {
+  background: rgba(30, 72, 85, 0.8);
+  border-color: #5ef4ff;
+  color: #e4fcff;
+}
+
+.wardrobe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.wardrobe-card {
+  background: rgba(10, 26, 32, 0.75);
+  border: 1px solid rgba(85, 230, 240, 0.25);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.wardrobe-card:hover {
+  border-color: #5ef4ff;
+  background: rgba(16, 40, 48, 0.85);
+  transform: translateY(-2px);
+}
+
+.wardrobe-card.equipped-card {
+  border-color: #52f8af;
+  box-shadow: 0 0 12px rgba(82, 248, 175, 0.25);
+}
+
+.wardrobe-card-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 0.86rem;
+  color: #e8fbff;
+}
+
+.wardrobe-card-info p {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #85abaa;
+  line-height: 1.3;
+}
+
+.btn-wardrobe-action {
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(37, 214, 226, 0.2);
+  border: 1px solid rgba(85, 230, 240, 0.4);
+  color: #c9fbff;
+}
+
+.btn-wardrobe-action:hover:not(:disabled) {
+  background: rgba(62, 235, 247, 0.4);
+  border-color: #5ff9ff;
+}
+
+.btn-wardrobe-action.buy {
+  background: linear-gradient(135deg, rgba(255, 195, 38, 0.3), rgba(200, 130, 10, 0.5));
+  border-color: #ffd447;
+  color: #fff1b8;
+}
+
+.btn-wardrobe-action.equipped {
+  background: rgba(40, 160, 95, 0.3);
+  border-color: #52f8af;
+  color: #afffdb;
+  cursor: default;
+}
+
+/* ==========================================================================
+   Perfil de Jugador & Selección de Avatar
+   ========================================================================== */
+.profile-box {
+  max-width: 440px;
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.avatar-options {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+.avatar-opt-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 1.4rem;
+  background: rgba(12, 30, 36, 0.7);
+  border: 1px solid rgba(85, 230, 240, 0.3);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-opt-btn.active, .avatar-opt-btn:hover {
+  background: rgba(37, 214, 226, 0.35);
+  border-color: #5ef4ff;
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(94, 244, 255, 0.4);
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.78rem;
+  color: #92bfbe;
+  margin-bottom: 6px;
+}
+
+.profile-stats-card {
+  display: flex;
+  justify-content: space-around;
+  background: rgba(8, 20, 24, 0.65);
+  border: 1px solid rgba(85, 230, 240, 0.2);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+
+.stat-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-num {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #5ef4ff;
+}
+
+.stat-lbl {
+  font-size: 0.65rem;
+  color: #85abaa;
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
+   Prompt de Apertura de Cofre Rúnico en Mapa
+   ========================================================================== */
+.chest-prompt {
+  position: absolute;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  background: rgba(14, 34, 40, 0.88);
+  border: 1px solid #ffd447;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 16px rgba(255, 212, 71, 0.35);
+  border-radius: 12px;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  animation: promptBounce 1.4s infinite ease-in-out;
+}
+
+@keyframes promptBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-4px); }
+}
+
+.chest-prompt-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.chest-prompt-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.chest-prompt-text strong {
+  font-size: 0.84rem;
+  color: #fff1b8;
+}
+
+.chest-prompt-text span {
+  font-size: 0.7rem;
+  color: #92bfbe;
+}
+
+.btn-open-chest {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #ffd447, #d49a0d);
+  border: 1px solid #fff1b8;
+  border-radius: 6px;
+  color: #1a1202;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-open-chest:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(255, 212, 71, 0.6);
+}
+

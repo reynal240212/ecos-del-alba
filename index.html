@@ -31,6 +31,17 @@
               <meter id="energy" min="0" max="100" value="100"></meter>
             </label>
           </div>
+          <!-- Perfil de Usuario y Barra de XP -->
+          <button id="btn-profile-open" class="profile-hud-badge" title="Ver Perfil y Cuenta de Jugador">
+            <span id="hud-avatar-icon" class="profile-avatar-icon">🏹</span>
+            <div class="profile-hud-info">
+              <span id="hud-username" class="profile-name">Guerrera</span>
+              <div class="xp-mini-wrap">
+                <span class="xp-tag" id="hud-level-tag">NVL 1</span>
+                <div class="xp-bar-mini"><div id="hud-xp-fill" class="xp-fill-mini" style="width: 0%;"></div></div>
+              </div>
+            </div>
+          </button>
         </div>
 
         <!-- Columna Central: Misión y Objetivos -->
@@ -88,6 +99,16 @@
             <span class="btn-text">Modelo 3D</span>
             <kbd class="kbd-hint">V</kbd>
           </button>
+          <button id="btn-wardrobe-open" class="hud-btn" title="Tienda de Avatar y Accesorios (Tecla B)">
+            <span>👗</span>
+            <span class="btn-text">Tienda</span>
+            <kbd class="kbd-hint">B</kbd>
+          </button>
+          <button id="btn-settings-open" class="hud-btn" title="Ajustes y Menú de Pausa (Tecla P o ESC)">
+            <span>⚙️</span>
+            <span class="btn-text">Ajustes</span>
+            <kbd class="kbd-hint">P</kbd>
+          </button>
         </div>
       </header>
 
@@ -112,6 +133,16 @@
         </div>
       </div>
 
+      <!-- Prompt flotante para abrir cofres del mapa -->
+      <div id="chest-prompt" class="chest-prompt hidden">
+        <span class="chest-prompt-icon">🎁</span>
+        <div class="chest-prompt-text">
+          <strong>Cofre Rúnico Ancestral</strong>
+          <span>Pulsa <kbd>E</kbd> o toca aquí para abrir</span>
+        </div>
+        <button id="btn-open-chest" class="btn-open-chest">Abrir Cofre</button>
+      </div>
+
       <!-- Controles Táctiles para Móvil -->
       <div id="touch-controls" class="touch-controls">
         <!-- Joystick Virtual (Izquierda) -->
@@ -128,6 +159,10 @@
           <button id="btn-touch-dash" class="touch-btn touch-btn-sub" aria-label="Sprint">
             💨
             <span>Sprint</span>
+          </button>
+          <button id="btn-touch-interact" class="touch-btn touch-btn-sub hidden" aria-label="Abrir Cofre">
+            🎁
+            <span>Cofre</span>
           </button>
           <button id="btn-touch-special" class="touch-btn touch-btn-special" aria-label="Sobrecarga Guardián">
             💥
@@ -249,6 +284,198 @@
               <button type="submit" class="submit-score-btn">Guardar Récord</button>
             </form>
           </div>
+        </div>
+      </div>
+
+      <!-- 1. Pantalla de Inicio / Menú Principal -->
+      <div id="main-menu-overlay" class="menu-overlay">
+        <div class="main-menu-card">
+          <div class="menu-brand">
+            <span class="brand-tag">AURORA STUDIOS · RPG DE ACCIÓN 3D</span>
+            <h1 class="brand-title">ECOS DEL ALBA</h1>
+            <p class="brand-desc">Aventura Rúnica, Combate Táctico y Personalización de Avatar</p>
+          </div>
+
+          <div class="menu-profile-bar" id="menu-profile-bar">
+            <span id="menu-avatar-icon" class="menu-avatar-icon">🏹</span>
+            <div class="menu-profile-meta">
+              <strong id="menu-player-name">Guerrera del Alba</strong>
+              <div class="menu-xp-line">
+                <span id="menu-player-level">Nivel 1</span> ·
+                <span id="menu-player-xp">0 / 150 XP</span>
+              </div>
+            </div>
+            <button id="btn-menu-switch-user" class="menu-switch-btn" title="Iniciar Sesión o Cambiar Usuario">👤 Cambiar</button>
+          </div>
+
+          <nav class="menu-action-buttons">
+            <button id="btn-start-game" class="menu-action-btn primary">
+              <span class="btn-icon">⚔️</span>
+              <span class="btn-label">Iniciar Partida</span>
+            </button>
+            <button id="btn-open-shop-menu" class="menu-action-btn">
+              <span class="btn-icon">👗</span>
+              <span class="btn-label">Tienda de Avatar & Accesorios</span>
+            </button>
+            <button id="btn-open-records-menu" class="menu-action-btn">
+              <span class="btn-icon">🏆</span>
+              <span class="btn-label">Récords & Clasificación</span>
+            </button>
+            <button id="btn-open-settings-menu" class="menu-action-btn">
+              <span class="btn-icon">⚙️</span>
+              <span class="btn-label">Ajustes & Opciones</span>
+            </button>
+          </nav>
+
+          <div class="menu-footer-hint">
+            <span>Controles compatibles con Pantalla Táctil y Teclado/Mouse</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Menú de Opciones / Pausa -->
+      <div id="settings-modal" class="modal-overlay hidden" aria-label="Menú de Ajustes y Pausa">
+        <div class="modal-box settings-box">
+          <div class="modal-header">
+            <h3>⚙️ AJUSTES & MENÚ DE PAUSA</h3>
+            <button id="btn-close-settings" class="modal-close" aria-label="Cerrar">&times;</button>
+          </div>
+
+          <div class="settings-content">
+            <div class="settings-section">
+              <h4>🔊 Control de Sonido y Volumen</h4>
+              <div class="setting-row">
+                <label for="slider-volume-master">Volumen Maestro:</label>
+                <div class="slider-val-wrap">
+                  <input type="range" id="slider-volume-master" min="0" max="100" value="80" />
+                  <span id="val-volume-master">80%</span>
+                </div>
+              </div>
+              <div class="setting-row">
+                <label for="slider-volume-music">Música de Batalla:</label>
+                <div class="slider-val-wrap">
+                  <input type="range" id="slider-volume-music" min="0" max="100" value="70" />
+                  <span id="val-volume-music">70%</span>
+                </div>
+              </div>
+              <div class="setting-row">
+                <label for="slider-volume-sfx">Efectos Especiales (SFX):</label>
+                <div class="slider-val-wrap">
+                  <input type="range" id="slider-volume-sfx" min="0" max="100" value="85" />
+                  <span id="val-volume-sfx">85%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h4>🎨 Gráficos y Rendimiento</h4>
+              <div class="setting-row">
+                <label for="select-shadows">Calidad de Sombras:</label>
+                <select id="select-shadows" class="settings-select">
+                  <option value="high" selected>Alta (PCF Soft Shadows)</option>
+                  <option value="low">Rendimiento (Baja)</option>
+                  <option value="off">Desactivadas</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <label for="select-particles">Partículas Ambientales:</label>
+                <select id="select-particles" class="settings-select">
+                  <option value="on" selected>Activadas (Esporas luminosas)</option>
+                  <option value="off">Desactivadas</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h4>🎯 Jugabilidad & Cámara</h4>
+              <div class="setting-row">
+                <label for="slider-mouse-sens">Sensibilidad de Mira (FPS):</label>
+                <div class="slider-val-wrap">
+                  <input type="range" id="slider-mouse-sens" min="1" max="10" value="5" />
+                  <span id="val-mouse-sens">5</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-actions">
+              <button id="btn-resume-game" class="btn-settings-action primary">▶ Reanudar Juego</button>
+              <button id="btn-restart-level" class="btn-settings-action">🔄 Reiniciar Nivel</button>
+              <button id="btn-return-main-menu" class="btn-settings-action danger">🏠 Menú Principal</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Modal de Tienda de Avatar / Boutique Rúnica -->
+      <div id="wardrobe-modal" class="modal-overlay hidden" aria-label="Tienda y Personalización de Avatar">
+        <div class="modal-box wardrobe-box">
+          <div class="modal-header">
+            <h3>👗 BOUTIQUE RÚNICA: PERSONALIZAR AVATAR</h3>
+            <button id="btn-close-wardrobe" class="modal-close" aria-label="Cerrar">&times;</button>
+          </div>
+
+          <div class="wardrobe-topbar">
+            <div class="wardrobe-essence">
+              Tus Esencias / Oro: <strong id="wardrobe-essence-val">0</strong> 💎
+            </div>
+            <nav class="wardrobe-nav-tabs">
+              <button class="wardrobe-tab active" data-tab="head">👑 Cascos & Visores</button>
+              <button class="wardrobe-tab" data-tab="back">✨ Alas & Capas</button>
+              <button class="wardrobe-tab" data-tab="skins">🎨 Paletas de Armadura</button>
+            </nav>
+          </div>
+
+          <div id="wardrobe-items-grid" class="wardrobe-grid">
+            <!-- Renderizado dinámico desde wardrobe.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Modal de Perfil e Inicio de Sesión -->
+      <div id="profile-modal" class="modal-overlay hidden" aria-label="Perfil de Jugador">
+        <div class="modal-box profile-box">
+          <div class="modal-header">
+            <h3>👤 CUENTA & PERFIL DE GUERRERA</h3>
+            <button id="btn-close-profile" class="modal-close" aria-label="Cerrar">&times;</button>
+          </div>
+
+          <form id="profile-form" class="profile-form">
+            <div class="profile-avatar-picker">
+              <label>Selecciona tu Ícono de Avatar:</label>
+              <div class="avatar-options">
+                <button type="button" class="avatar-opt-btn active" data-avatar="🏹">🏹</button>
+                <button type="button" class="avatar-opt-btn" data-avatar="⚡">⚡</button>
+                <button type="button" class="avatar-opt-btn" data-avatar="👑">👑</button>
+                <button type="button" class="avatar-opt-btn" data-avatar="🌸">🌸</button>
+                <button type="button" class="avatar-opt-btn" data-avatar="🐺">🐺</button>
+                <button type="button" class="avatar-opt-btn" data-avatar="🔥">🔥</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="input-profile-name">Nombre de Jugador/a:</label>
+              <input type="text" id="input-profile-name" maxlength="18" placeholder="Ingresa tu nombre..." required />
+            </div>
+
+            <div class="profile-stats-card">
+              <div class="stat-col">
+                <span class="stat-num" id="prof-stat-level">1</span>
+                <span class="stat-lbl">Nivel</span>
+              </div>
+              <div class="stat-col">
+                <span class="stat-num" id="prof-stat-xp">0</span>
+                <span class="stat-lbl">XP Actual</span>
+              </div>
+              <div class="stat-col">
+                <span class="stat-num" id="prof-stat-essence">0</span>
+                <span class="stat-lbl">Esencia</span>
+              </div>
+            </div>
+
+            <div class="profile-actions">
+              <button type="submit" class="submit-score-btn">Guardar e Iniciar Sesión</button>
+            </div>
+          </form>
         </div>
       </div>
 

@@ -2,6 +2,9 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.m
 import { createProtagonist, createProtagonistMaterials, createFPSViewModel } from "./character.js";
 import { musicEngine } from "./music.js";
 import { createSentinelDrone, createCorruptedStalker, createTitanBossModel } from "./enemies.js";
+import { ACCESSORY_CATALOG, WardrobeManager } from "./wardrobe.js";
+import { profileManager } from "./profile.js";
+import { ChestManager } from "./chests.js";
 
 // DOM Elements
 const canvas = document.querySelector("#game");
@@ -44,6 +47,62 @@ const btnUpgradeBow = document.querySelector("#btn-upgrade-bow");
 const btnUpgradeDrone = document.querySelector("#btn-upgrade-drone");
 const btnUpgradeArmor = document.querySelector("#btn-upgrade-armor");
 
+// Main Menu, Settings, Profile & Wardrobe Shop DOM Elements
+const mainMenuOverlay = document.querySelector("#main-menu-overlay");
+const btnStartGame = document.querySelector("#btn-start-game");
+const btnOpenShopMenu = document.querySelector("#btn-open-shop-menu");
+const btnOpenRecordsMenu = document.querySelector("#btn-open-records-menu");
+const btnOpenSettingsMenu = document.querySelector("#btn-open-settings-menu");
+const btnMenuSwitchUser = document.querySelector("#btn-menu-switch-user");
+const menuAvatarIcon = document.querySelector("#menu-avatar-icon");
+const menuPlayerName = document.querySelector("#menu-player-name");
+const menuPlayerLevel = document.querySelector("#menu-player-level");
+const menuPlayerXp = document.querySelector("#menu-player-xp");
+
+const btnProfileOpen = document.querySelector("#btn-profile-open");
+const hudAvatarIcon = document.querySelector("#hud-avatar-icon");
+const hudUsername = document.querySelector("#hud-username");
+const hudLevelTag = document.querySelector("#hud-level-tag");
+const hudXpFill = document.querySelector("#hud-xp-fill");
+
+const profileModal = document.querySelector("#profile-modal");
+const btnCloseProfile = document.querySelector("#btn-close-profile");
+const profileForm = document.querySelector("#profile-form");
+const inputProfileName = document.querySelector("#input-profile-name");
+const avatarOptButtons = document.querySelectorAll(".avatar-opt-btn");
+const profStatLevel = document.querySelector("#prof-stat-level");
+const profStatXp = document.querySelector("#prof-stat-xp");
+const profStatEssence = document.querySelector("#prof-stat-essence");
+
+const btnSettingsOpen = document.querySelector("#btn-settings-open");
+const settingsModal = document.querySelector("#settings-modal");
+const btnCloseSettings = document.querySelector("#btn-close-settings");
+const sliderVolumeMaster = document.querySelector("#slider-volume-master");
+const valVolumeMaster = document.querySelector("#val-volume-master");
+const sliderVolumeMusic = document.querySelector("#slider-volume-music");
+const valVolumeMusic = document.querySelector("#val-volume-music");
+const sliderVolumeSfx = document.querySelector("#slider-volume-sfx");
+const valVolumeSfx = document.querySelector("#val-volume-sfx");
+const selectShadows = document.querySelector("#select-shadows");
+const selectParticles = document.querySelector("#select-particles");
+const sliderMouseSens = document.querySelector("#slider-mouse-sens");
+const valMouseSens = document.querySelector("#val-mouse-sens");
+const btnResumeGame = document.querySelector("#btn-resume-game");
+const btnRestartLevel = document.querySelector("#btn-restart-level");
+const btnReturnMainMenu = document.querySelector("#btn-return-main-menu");
+
+const btnWardrobeOpen = document.querySelector("#btn-wardrobe-open");
+const wardrobeModal = document.querySelector("#wardrobe-modal");
+const btnCloseWardrobe = document.querySelector("#btn-close-wardrobe");
+const wardrobeEssenceVal = document.querySelector("#wardrobe-essence-val");
+const wardrobeTabs = document.querySelectorAll(".wardrobe-tab");
+const wardrobeItemsGrid = document.querySelector("#wardrobe-items-grid");
+
+// Chest Interaction Elements
+const chestPrompt = document.querySelector("#chest-prompt");
+const btnOpenChest = document.querySelector("#btn-open-chest");
+const btnTouchInteract = document.querySelector("#btn-touch-interact");
+
 // Level Transition & Boss HUD
 const levelBanner = document.querySelector("#level-banner");
 const bannerTitle = document.querySelector("#banner-title");
@@ -59,6 +118,22 @@ const btnTouchCam = document.querySelector("#btn-touch-cam");
 const btnTouchDash = document.querySelector("#btn-touch-dash");
 const btnTouchShoot = document.querySelector("#btn-touch-shoot");
 const btnTouchSpecial = document.querySelector("#btn-touch-special");
+
+// Audio & Game Settings State
+const audioSettings = {
+  master: 0.8,
+  music: 0.7,
+  sfx: 0.85,
+  mouseSensitivity: 0.0024,
+};
+
+let isGamePaused = true; // Paused while on Main Menu
+let isSettingsOpen = false;
+let isWardrobeOpen = false;
+let isProfileOpen = false;
+let currentWardrobeTab = "head";
+let currentSelectedAvatar = "🏹";
+let activeNearChest = null;
 
 // Three.js Core Setup
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
@@ -95,6 +170,9 @@ function initAudio() {
 
 function playSound(type) {
   if (!audioCtx) return;
+  const sfxVol = audioSettings.master * audioSettings.sfx;
+  if (sfxVol <= 0.001) return;
+
   try {
     const now = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
@@ -106,7 +184,7 @@ function playSound(type) {
       osc.type = "sine";
       osc.frequency.setValueAtTime(920, now);
       osc.frequency.exponentialRampToValueAtTime(240, now + 0.16);
-      gain.gain.setValueAtTime(0.28, now);
+      gain.gain.setValueAtTime(0.28 * sfxVol, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
       osc.start(now);
       osc.stop(now + 0.16);
@@ -114,7 +192,7 @@ function playSound(type) {
       osc.type = "sawtooth";
       osc.frequency.setValueAtTime(480, now);
       osc.frequency.exponentialRampToValueAtTime(140, now + 0.22);
-      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.setValueAtTime(0.2 * sfxVol, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
       osc.start(now);
       osc.stop(now + 0.22);
@@ -122,7 +200,7 @@ function playSound(type) {
       osc.type = "triangle";
       osc.frequency.setValueAtTime(280, now);
       osc.frequency.exponentialRampToValueAtTime(45, now + 0.45);
-      gain.gain.setValueAtTime(0.48, now);
+      gain.gain.setValueAtTime(0.48 * sfxVol, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
       osc.start(now);
       osc.stop(now + 0.45);
@@ -130,7 +208,7 @@ function playSound(type) {
       osc.type = "triangle";
       osc.frequency.setValueAtTime(1400, now);
       osc.frequency.setValueAtTime(1900, now + 0.05);
-      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.setValueAtTime(0.12 * sfxVol, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
       osc.start(now);
       osc.stop(now + 0.12);
@@ -138,22 +216,35 @@ function playSound(type) {
       osc.type = "sawtooth";
       osc.frequency.setValueAtTime(320, now);
       osc.frequency.exponentialRampToValueAtTime(80, now + 0.14);
-      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.setValueAtTime(0.25 * sfxVol, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.14);
       osc.start(now);
       osc.stop(now + 0.14);
-    } else if (type === "crystal") {
-      [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+    } else if (type === "crystal" || type === "chest") {
+      [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((freq, i) => {
         const o = audioCtx.createOscillator();
         const g = audioCtx.createGain();
         o.connect(g);
         g.connect(audioCtx.destination);
         o.type = "sine";
         o.frequency.setValueAtTime(freq, now + i * 0.08);
-        g.gain.setValueAtTime(0.2, now + i * 0.08);
+        g.gain.setValueAtTime(0.22 * sfxVol, now + i * 0.08);
         g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.6);
         o.start(now + i * 0.08);
         o.stop(now + i * 0.08 + 0.6);
+      });
+    } else if (type === "levelup") {
+      [440, 554.37, 659.25, 880, 1108.7].forEach((freq, i) => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        o.type = "triangle";
+        o.frequency.setValueAtTime(freq, now + i * 0.09);
+        g.gain.setValueAtTime(0.3 * sfxVol, now + i * 0.09);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.09 + 0.8);
+        o.start(now + i * 0.09);
+        o.stop(now + i * 0.09 + 0.8);
       });
     } else if (type === "upgrade") {
       [440, 554.37, 659.25, 880].forEach((freq, i) => {
@@ -163,7 +254,7 @@ function playSound(type) {
         g.connect(audioCtx.destination);
         o.type = "sine";
         o.frequency.setValueAtTime(freq, now + i * 0.07);
-        g.gain.setValueAtTime(0.25, now + i * 0.07);
+        g.gain.setValueAtTime(0.25 * sfxVol, now + i * 0.07);
         g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.5);
         o.start(now + i * 0.07);
         o.stop(now + i * 0.07 + 0.5);
@@ -176,7 +267,7 @@ function playSound(type) {
         g.connect(audioCtx.destination);
         o.type = "triangle";
         o.frequency.setValueAtTime(freq, now + i * 0.12);
-        g.gain.setValueAtTime(0.24, now + i * 0.12);
+        g.gain.setValueAtTime(0.25 * sfxVol, now + i * 0.12);
         g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 1.2);
         o.start(now + i * 0.12);
         o.stop(now + i * 0.12 + 1.2);
@@ -225,7 +316,6 @@ function resolveWorldCollision(position, radius = 0.65) {
       const dz = position.z - nearestZ;
       const distSq = dx * dx + dz * dz;
       if (distSq < radius * radius) {
-        // Position is inside or penetrating bounding box
         if (position.x >= col.minX && position.x <= col.maxX && position.z >= col.minZ && position.z <= col.maxZ) {
           const dLeft = position.x - col.minX;
           const dRight = col.maxX - position.x;
@@ -248,7 +338,6 @@ function resolveWorldCollision(position, radius = 0.65) {
     }
   }
 
-  // Clamping to map boundaries
   position.x = THREE.MathUtils.clamp(position.x, -41, 41);
   position.z = THREE.MathUtils.clamp(position.z, -31, 31);
 }
@@ -279,7 +368,6 @@ function checkProjectileCollision(position, radius = 0.25) {
 // Procedural 3D Terrain Height
 // ==========================================================================
 function getTerrainHeight(x, z) {
-  // Central ruins plaza is flattened for optimal combat experience
   const dCenter = Math.hypot(x, z);
   const flatFactor = Math.min(1, Math.max(0, (dCenter - 6) / 16));
 
@@ -287,7 +375,6 @@ function getTerrainHeight(x, z) {
   const hill2 = Math.sin(x * 0.2 + 0.8) * Math.cos(z * 0.17 - 0.4) * 0.95;
   const ridge = Math.cos((x - z) * 0.07) * 0.65;
 
-  // Natural edge lift forming a majestic valley basin
   const edgeX = Math.max(0, Math.abs(x) - 32);
   const edgeZ = Math.max(0, Math.abs(z) - 23);
   const edgeLift = (edgeX * edgeX + edgeZ * edgeZ) * 0.012;
@@ -296,7 +383,7 @@ function getTerrainHeight(x, z) {
 }
 
 // Camera Modes & FPS Viewmodel
-let cameraMode = "fps"; // Default to First Person view
+let cameraMode = "fps";
 let cameraYaw = 0;
 let cameraPitch = 0;
 let walkBob = 0;
@@ -315,8 +402,6 @@ const upgradeCosts = {
   drone: [0, 200, 450],
   armor: [0, 200, 450],
 };
-
-let playerEssence = 0;
 
 const player = {
   group: null,
@@ -352,6 +437,11 @@ let lastFrameTime = performance.now();
 let droneAutoShootTimer = 0;
 let droneCurrentTarget = null;
 let droneScanAngle = 0;
+
+// Chest Manager & Wardrobe Manager instances
+let chestManager = null;
+let wardrobeManager = null;
+let protagonistMaterials = null;
 
 // Touch Controls State
 const joystick = {
@@ -402,10 +492,58 @@ function showToast(text) {
 }
 
 function addEssence(amount) {
-  playerEssence += amount;
-  essenceCountText.textContent = playerEssence;
-  modalEssenceCount.textContent = playerEssence;
+  profileManager.addEssence(amount);
+  updateProfileUI();
   updateUpgradeUI();
+  updateWardrobeUI();
+}
+
+// ==========================================================================
+// User Profile, Leveling & XP Progression System
+// ==========================================================================
+function updateProfileUI() {
+  const u = profileManager.user;
+  // HUD Badge
+  if (hudAvatarIcon) hudAvatarIcon.textContent = u.avatarIcon;
+  if (hudUsername) hudUsername.textContent = u.name;
+  if (hudLevelTag) hudLevelTag.textContent = `NVL ${u.level}`;
+  const pct = Math.min(100, (u.xp / u.xpToNext) * 100);
+  if (hudXpFill) hudXpFill.style.width = `${pct}%`;
+  if (essenceCountText) essenceCountText.textContent = u.essence;
+
+  // Main Menu Card
+  if (menuAvatarIcon) menuAvatarIcon.textContent = u.avatarIcon;
+  if (menuPlayerName) menuPlayerName.textContent = u.name;
+  if (menuPlayerLevel) menuPlayerLevel.textContent = `Nivel ${u.level}`;
+  if (menuPlayerXp) menuPlayerXp.textContent = `${u.xp} / ${u.xpToNext} XP`;
+
+  // Profile Modal Stats
+  if (profStatLevel) profStatLevel.textContent = u.level;
+  if (profStatXp) profStatXp.textContent = `${u.xp}/${u.xpToNext}`;
+  if (profStatEssence) profStatEssence.textContent = u.essence;
+  if (inputProfileName) inputProfileName.value = u.name;
+}
+
+profileManager.onLevelUp = (newLevel) => {
+  playSound("levelup");
+  vibrate(60);
+  player.health = player.maxHealth;
+  player.energy = 100;
+  burst(player.group.position, 0x52f8af, 32);
+  showToast(`⭐ ¡SUBIDA DE NIVEL! Ahora eres Nivel ${newLevel} (+100 💎)`);
+  updateProfileUI();
+};
+
+profileManager.onProfileChange = () => {
+  updateProfileUI();
+};
+
+function awardXp(amount, reason = "") {
+  const res = profileManager.addXp(amount);
+  updateProfileUI();
+  if (reason) {
+    showToast(`+${amount} XP ${reason}`);
+  }
 }
 
 // ==========================================================================
@@ -414,7 +552,6 @@ function addEssence(amount) {
 function createWorld() {
   worldColliders = [];
 
-  // Dramatic Lighting
   scene.add(new THREE.HemisphereLight(0xbfe8eb, 0x273322, 2.2));
   const sun = new THREE.DirectionalLight(0xffdfb3, 4.2);
   sun.position.set(-26, 42, 22);
@@ -427,7 +564,6 @@ function createWorld() {
   fillLight.position.set(24, 18, -18);
   scene.add(fillLight);
 
-  // High-Density 3D Sculpted Terrain
   const groundGeo = new THREE.PlaneGeometry(WORLD.width, WORLD.depth, 76, 58);
   const positions = groundGeo.attributes.position;
   const colors = [];
@@ -441,16 +577,15 @@ function createWorld() {
     const height = getTerrainHeight(worldX, worldZ);
     positions.setZ(i, height);
 
-    // Natural Biome Vertex Coloring: valleys vs ridges vs cyber seams
     const dCenter = Math.hypot(worldX, worldZ);
     if (dCenter < 8) {
-      tint.set(0x384a44); // Ancient stone plaza
+      tint.set(0x384a44);
     } else if (height > 2.0) {
-      tint.set(0x485850); // Rocky crags
+      tint.set(0x485850);
     } else if (Math.abs(Math.sin(worldX * 0.3) * Math.cos(worldZ * 0.3)) > 0.88) {
-      tint.set(0x19665c); // Bioluminescent cyber moss
+      tint.set(0x19665c);
     } else {
-      tint.set(i % 4 === 0 ? 0x2b523f : 0x214434); // Lush valley meadow
+      tint.set(i % 4 === 0 ? 0x2b523f : 0x214434);
     }
     colors.push(tint.r, tint.g, tint.b);
   }
@@ -468,41 +603,30 @@ function createWorld() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // Ancient Cobblestone Paved Paths connecting shrines
   createPavedPathways();
-
-  // Grand Ancient Cyber-Ruins with Registered Colliders
   createRuins(-22, -14, 0.2);
   createRuins(14, -12, -0.45);
   createRuins(24, 16, 0.72);
   createRuins(-12, 18, -0.3);
 
-  // Floating Runic Monoliths
   createMonolith(-28, 4, 0.5);
   createMonolith(28, -2, -0.4);
   createMonolith(-4, -22, 0.8);
   createMonolith(2, 24, -0.7);
 
-  // Bioluminescent Crystal Formations
   createCrystalCluster(-16, -6, 0x88f5ff);
   createCrystalCluster(18, 4, 0xd05eff);
   createCrystalCluster(-8, 12, 0x5ef4ff);
   createCrystalCluster(10, -20, 0xbd47ff);
 
-  // Ancient Portal
   createPortal(34, -20);
-
-  // Gnarled Cyber-Trees & Flora
   createDetailedFlora();
-
-  // Boulders & Rocks
   createRockFormations();
-
-  // Majestic Mountain Citadels
   createMountains();
-
-  // Ambient Floating Cyber-Spores / Embers
   createAmbientMotes();
+
+  // Initialize Chest Manager
+  chestManager = new ChestManager(scene, addCircleCollider, getTerrainHeight);
 }
 
 function createPavedPathways() {
@@ -519,7 +643,6 @@ function createPavedPathways() {
     slab.rotation.y = Math.sin(i * 1.2) * 0.1;
     scene.add(slab);
 
-    // Glowing runic conduit seam
     if (i % 3 === 0) {
       const seam = mesh(new THREE.BoxGeometry(2.4, 0.04, 0.08), runeMat, false);
       seam.position.set(x, y + 0.15, z);
@@ -534,30 +657,25 @@ function createRuins(x, z, rotation) {
   ruin.position.set(x, y, z);
   ruin.rotation.y = rotation;
 
-  // Base platform
   const base = mesh(new THREE.BoxGeometry(12, 0.8, 5.5), mats.stoneDark);
   base.position.y = 0.4;
   ruin.add(base);
   addBoxCollider(x - 5.8, x + 5.8, z - 2.6, z + 2.6, "ruin_base");
 
-  // Columns with cylinder colliders
   [-4.8, 4.8].forEach((px, i) => {
     const pillarH = 6.2 - i * 1.0;
     const pillar = mesh(new THREE.BoxGeometry(1.6, pillarH, 1.6), mats.stone);
     pillar.position.set(px, pillarH / 2 + 0.4, 0);
     ruin.add(pillar);
 
-    // Transform pillar local pos to world for circle collider
     const pWorld = new THREE.Vector3(px, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotation).add(new THREE.Vector3(x, 0, z));
     addCircleCollider(pWorld.x, pWorld.z, 1.0, "ruin_pillar");
   });
 
-  // Top lintel arch beam
   const beam = mesh(new THREE.BoxGeometry(11.8, 1.2, 1.8), mats.stone);
   beam.position.set(0, 6.2, 0);
   ruin.add(beam);
 
-  // Glowing Runic Inscription
   const rune = mesh(new THREE.BoxGeometry(6.2, 0.12, 0.14), mats.cyan, false);
   rune.position.set(0, 6.18, 0.95);
   ruin.add(rune);
@@ -571,19 +689,16 @@ function createMonolith(x, z, rotation) {
   group.position.set(x, y, z);
   group.rotation.y = rotation;
 
-  // Ground stone pedestal with collider
   const pedestal = mesh(new THREE.CylinderGeometry(1.6, 2.0, 0.7, 8), mats.stoneDark);
   pedestal.position.y = 0.35;
   group.add(pedestal);
   addCircleCollider(x, z, 1.8, "monolith_base");
 
-  // Hovering Runic Obelisk
   const obelisk = mesh(new THREE.OctahedronGeometry(1.2, 0), mats.enemy);
   obelisk.scale.set(0.9, 3.2, 0.9);
   obelisk.position.y = 3.8;
   group.add(obelisk);
 
-  // Rotating Runic Halo
   const halo = mesh(new THREE.TorusGeometry(1.6, 0.08, 6, 24), mats.cyan, false);
   halo.position.y = 3.8;
   halo.rotation.x = Math.PI / 2;
@@ -660,21 +775,18 @@ function createDetailedFlora() {
   for (let i = 0; i < 75; i += 1) {
     const x = ((i * 37.3) % 76) - 38;
     const z = ((i * 23.7 + 11) % 56) - 28;
-    // Don't spawn on main center path
     if (Math.hypot(x, z) < 9) continue;
 
     const y = getTerrainHeight(x, z);
     const plant = new THREE.Group();
     plant.position.set(x, y, z);
 
-    // Gnarled Cyber-Trunk with Collider
     const stem = mesh(new THREE.CylinderGeometry(0.18, 0.32, 1.8, 6), mats.bark, true);
     stem.position.y = 0.9;
     stem.rotation.z = Math.sin(i) * 0.15;
     plant.add(stem);
     addCircleCollider(x, z, 0.45, "tree_trunk");
 
-    // Tiered Geometric Foliage Canopy
     for (let layer = 0; layer < 3; layer++) {
       const leaves = mesh(new THREE.ConeGeometry(1.4 - layer * 0.35, 1.2, 6), leafMats[(i + layer) % 3], true);
       leaves.position.y = 1.8 + layer * 0.8;
@@ -718,7 +830,6 @@ function createMountains() {
 }
 
 function createAmbientMotes() {
-  const moteGeo = new THREE.BufferGeometry();
   const count = 140;
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
@@ -726,6 +837,7 @@ function createAmbientMotes() {
     positions[i * 3 + 1] = 1 + Math.random() * 8;
     positions[i * 3 + 2] = (Math.random() - 0.5) * 58;
   }
+  const moteGeo = new THREE.BufferGeometry();
   moteGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
   const moteMat = new THREE.PointsMaterial({
@@ -765,12 +877,16 @@ function initPlayer() {
   player.group = heroine.root;
   player.heroine = heroine;
 
-  // First-Person ViewModel attached directly to Camera
-  const pMats = createProtagonistMaterials();
-  fpsViewModel = createFPSViewModel(pMats);
+  protagonistMaterials = createProtagonistMaterials();
+  fpsViewModel = createFPSViewModel(protagonistMaterials);
   camera.add(fpsViewModel.fpsRig);
 
+  // Initialize Wardrobe Manager with heroine and materials
+  wardrobeManager = new WardrobeManager(heroine, protagonistMaterials);
+  wardrobeManager.loadEquipped(profileManager.user.equipped);
+
   applyPlayerUpgrades();
+  updateProfileUI();
 }
 
 function applyPlayerUpgrades() {
@@ -817,7 +933,7 @@ function createCrystal(x, z) {
 }
 
 // ==========================================================================
-// Level Loading & Dynamic Enemies Spawning
+// Level Loading, Enemies & Treasure Chest Spawning
 // ==========================================================================
 function loadLevel(levelNum) {
   currentLevel = levelNum;
@@ -834,6 +950,7 @@ function loadLevel(levelNum) {
   enemyBolts = [];
   levelBoss = null;
   bossHud.classList.add("hidden");
+  if (chestManager) chestManager.clear();
 
   portalCore.material.color.set(0x183b43);
   portalCore.material.opacity = 0.28;
@@ -847,7 +964,11 @@ function loadLevel(levelNum) {
     createCrystal(7, 13);
     createCrystal(24, -17);
 
-    // Spawning Sentinel Drones & Corrupted Stalkers
+    // Spawning Treasure Chests
+    chestManager.spawnChest(-18, -10, { essence: 180, xp: 120 });
+    chestManager.spawnChest(16, 20, { essence: 220, xp: 150 });
+
+    // Spawning Enemies
     enemies.push(spawnSentinelEnemy(-16, 8, 45, 2.2));
     enemies.push(spawnStalkerEnemy(-2, -7, 60, 3.4));
     enemies.push(spawnSentinelEnemy(12, 9, 45, 2.2));
@@ -855,7 +976,7 @@ function loadLevel(levelNum) {
     enemies.push(spawnSentinelEnemy(29, 17, 45, 2.4));
     enemies.push(spawnStalkerEnemy(3, 20, 60, 3.3));
 
-    showToast("✨ Misión: Sintoniza los 3 cristales ancestrales");
+    showToast("✨ Misión: Sintoniza cristales y abre los cofres rúnicos");
   } else if (currentLevel === 2) {
     levelTitle.textContent = "NIVEL 2";
     scene.background.set(0x382247);
@@ -866,7 +987,10 @@ function loadLevel(levelNum) {
     createCrystal(14, 18);
     createCrystal(28, -6);
 
-    // Spawning Elite Drones and Fast Stalkers
+    // Spawning Treasure Chests
+    chestManager.spawnChest(-6, 22, { essence: 250, xp: 160 });
+    chestManager.spawnChest(26, -16, { essence: 300, xp: 200 });
+
     enemies.push(spawnSentinelEnemy(-20, 5, 70, 2.5, true));
     enemies.push(spawnStalkerEnemy(-12, -12, 85, 3.8, true));
     enemies.push(spawnSentinelEnemy(-4, 8, 70, 2.5, true));
@@ -884,6 +1008,9 @@ function loadLevel(levelNum) {
 
     createCrystal(-15, 0);
     createCrystal(15, 0);
+
+    // Spawning Grand Relic Chest
+    chestManager.spawnChest(0, -22, { essence: 500, xp: 350 });
 
     spawnTitanBoss(18, -12);
     enemies.push(spawnSentinelEnemy(-10, 14, 60, 2.6));
@@ -965,7 +1092,9 @@ function spawnTitanBoss(x, z) {
 // Combat: Weapons, Recoil, Projectiles & EMP
 // ==========================================================================
 function shoot() {
-  if (inspectMode || isLeaderboardOpen || isUpgradeOpen || player.energy < 12 || player.shootCooldown > 0 || gameOver || gameFinished) return;
+  if (isGamePaused || inspectMode || isLeaderboardOpen || isUpgradeOpen || isWardrobeOpen || isProfileOpen || isSettingsOpen) return;
+  if (player.energy < 12 || player.shootCooldown > 0 || gameOver || gameFinished) return;
+
   initAudio();
   vibrate(25);
 
@@ -1018,7 +1147,9 @@ function shoot() {
 }
 
 function triggerDroneShockwave() {
-  if (inspectMode || player.energy < 32 || player.specialCooldown > 0 || gameOver || gameFinished) return;
+  if (isGamePaused || inspectMode || isWardrobeOpen || isProfileOpen || isSettingsOpen) return;
+  if (player.energy < 32 || player.specialCooldown > 0 || gameOver || gameFinished) return;
+
   initAudio();
   vibrate(50);
   player.energy -= 32;
@@ -1057,6 +1188,7 @@ function triggerDroneShockwave() {
   }, 25);
 }
 
+// Enemy Defeat with XP and Essence Rewards
 function destroyEnemy(enemy) {
   const idx = enemies.indexOf(enemy);
   if (idx !== -1) {
@@ -1065,8 +1197,20 @@ function destroyEnemy(enemy) {
     scene.remove(enemy.group);
     enemies.splice(idx, 1);
     player.enemiesDefeated += 1;
-    addEssence(30);
-    showToast("+30 💎 Esencia Ancestral");
+
+    // Grant XP and Essence based on enemy type
+    let xpGain = 45;
+    let essenceGain = 30;
+    if (enemy.isBoss) {
+      xpGain = 600;
+      essenceGain = 250;
+    } else if (enemy.type === "stalker") {
+      xpGain = 75;
+      essenceGain = 45;
+    }
+
+    addEssence(essenceGain);
+    awardXp(xpGain, `(+${essenceGain} 💎)`);
   }
 }
 
@@ -1084,12 +1228,11 @@ function burst(position, color = 0x73eff7, count = 8) {
   }
 }
 
-// Companion Guardian AI (Autonomous Defense & Scanner)
+// Companion Guardian AI
 function updateCompanionGuardian(dt) {
   const drone = player.heroine.drone;
   if (!drone) return;
 
-  // Autonomous Target Acquisition
   let closestTarget = null;
   let closestDist = 24;
   enemies.forEach((enemy) => {
@@ -1117,7 +1260,7 @@ function updateCompanionGuardian(dt) {
 
     droneAutoShootTimer -= dt;
     const fireInterval = upgrades.drone === 1 ? 1.4 : upgrades.drone === 2 ? 0.9 : 0.55;
-    if (droneAutoShootTimer <= 0 && !gameOver && !gameFinished && !inspectMode) {
+    if (droneAutoShootTimer <= 0 && !gameOver && !gameFinished && !isGamePaused) {
       droneAutoShootTimer = fireInterval;
       playSound("drone");
       const droneWorldPos = new THREE.Vector3();
@@ -1176,7 +1319,6 @@ function updateAim() {
   }
 }
 
-// Fluid Movement with Object Collisions & Terrain Snapping
 function updatePlayer(dt) {
   const currentSpeed = player.speed * (isSprinting ? 1.45 : 1.0);
   const move = new THREE.Vector3();
@@ -1213,19 +1355,15 @@ function updatePlayer(dt) {
   player.velocity.lerp(targetVelocity, 1 - Math.exp(-14 * dt));
   player.group.position.addScaledVector(player.velocity, dt);
 
-  // Apply World Obstacle Collisions
   resolveWorldCollision(player.group.position, 0.65);
 
-  // Snap to 3D Terrain Height
   const terrainY = getTerrainHeight(player.group.position.x, player.group.position.z);
   player.group.position.y = terrainY;
 
-  // Head bobbing for FPS
   if (isMoving) {
     walkBob += dt * (isSprinting ? 14 : 10);
   }
 
-  // Energy & Cooldowns
   const energyRegen = upgrades.armor >= 2 ? 30 : 20;
   player.energy = Math.min(100, player.energy + energyRegen * dt);
   player.shootCooldown = Math.max(0, player.shootCooldown - dt);
@@ -1262,9 +1400,25 @@ function updateCrystals(dt) {
       playSound("crystal");
       vibrate(30);
       addEssence(75);
-      showToast("+75 💎 ¡Cristal Ancestral Sintonizado!");
+      awardXp(100, "¡Cristal Sintonizado! (+75 💎)");
     }
   });
+}
+
+// Chest Opening Action
+function tryOpenNearestChest() {
+  if (!activeNearChest || activeNearChest.opened) return;
+  const loot = chestManager.openChest(activeNearChest);
+  if (loot) {
+    playSound("chest");
+    vibrate(45);
+    burst(activeNearChest.chest3D.root.position, 0xffd147, 28);
+    addEssence(loot.essence);
+    awardXp(loot.xp, `🎁 ¡Cofre Rúnico Abierto! (+${loot.essence} 💎)`);
+    chestPrompt.classList.add("hidden");
+    btnTouchInteract.classList.add("hidden");
+    activeNearChest = null;
+  }
 }
 
 // ==========================================================================
@@ -1278,26 +1432,21 @@ function updateEnemies(dt) {
 
     const isMoving = distance > 2.0 && distance < 26;
 
-    // Model specific animation updates
     if (enemy.model && enemy.model.update) {
       enemy.model.update(dt, elapsed, isMoving);
     }
-    // Update Floating 3D Health Bar Billboard
     if (enemy.model && enemy.model.hpBar) {
       enemy.model.hpBar.update(enemy.health, enemy.maxHealth, camera);
     }
 
     if (enemy.type === "drone") {
-      // Sentinel Drone: Stays at standoff distance (9-14m) and shoots plasma bolts
       if (distance > 13) {
         enemy.group.position.addScaledVector(towardPlayer.clone().normalize(), enemy.speed * dt);
       } else if (distance < 8) {
-        // Backs away slightly
         enemy.group.position.addScaledVector(towardPlayer.clone().normalize(), -enemy.speed * dt * 0.8);
       }
       enemy.group.lookAt(player.group.position.x, enemy.group.position.y, player.group.position.z);
 
-      // Targeting Laser & Charging Attack
       enemy.model.shootCooldown -= dt;
       if (distance < 22 && enemy.model.shootCooldown <= 1.2) {
         enemy.model.targetingLaser.material.opacity = 0.8;
@@ -1311,7 +1460,6 @@ function updateEnemies(dt) {
         enemy.model.shootCooldown = 2.8 + Math.random() * 1.2;
         playSound("enemyShoot");
 
-        // Shoot plasma bolt towards player
         const boltDir = player.group.position.clone().add(new THREE.Vector3(0, 1.4, 0)).sub(enemy.group.position).normalize();
         const eBolt = mesh(new THREE.SphereGeometry(0.22, 8, 8), mats.purple, false);
         eBolt.position.copy(enemy.group.position).add(new THREE.Vector3(0, 1.6, 0));
@@ -1320,13 +1468,11 @@ function updateEnemies(dt) {
         burst(eBolt.position, 0xbd3fff, 6);
       }
     } else if (enemy.type === "stalker") {
-      // Corrupted Stalker: Fast sprinter, charges directly at player
       if (distance > 1.8 && distance < 26) {
         enemy.group.position.addScaledVector(towardPlayer.clone().normalize(), enemy.speed * dt);
         enemy.group.lookAt(player.group.position.x, enemy.group.position.y, player.group.position.z);
       }
     } else if (enemy.type === "boss") {
-      // Boss AI: Slow march, firing volleys and slam shockwaves
       if (distance > 4.5) {
         enemy.group.position.addScaledVector(towardPlayer.clone().normalize(), enemy.speed * dt);
       }
@@ -1336,7 +1482,6 @@ function updateEnemies(dt) {
       if (enemy.model.shootCooldown <= 0) {
         enemy.model.shootCooldown = 3.2;
         playSound("enemyShoot");
-        // Triple volley
         for (let i = -1; i <= 1; i++) {
           const bDir = towardPlayer.clone().normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), i * 0.25);
           const bMesh = mesh(new THREE.SphereGeometry(0.35, 10, 10), mats.boss, false);
@@ -1347,14 +1492,10 @@ function updateEnemies(dt) {
       }
     }
 
-    // Apply obstacle collision resolution on enemies so they don't walk through walls/pillars
     resolveWorldCollision(enemy.group.position, enemy.radius);
-
-    // Snap to 3D Terrain Height
     const groundY = getTerrainHeight(enemy.group.position.x, enemy.group.position.z);
     enemy.group.position.y = groundY + enemy.hoverHeight;
 
-    // Contact attack on player
     if (distance < (enemy.radius + 0.8) && player.invulnerable <= 0) {
       if (upgrades.drone >= 3 && !player.shieldActive) {
         player.shieldActive = true;
@@ -1382,7 +1523,6 @@ function updateEnemies(dt) {
   }
 }
 
-// Projectiles: Player Bolts & World Collisions
 function updateBolts(dt) {
   for (let i = bolts.length - 1; i >= 0; i -= 1) {
     const bolt = bolts[i];
@@ -1390,14 +1530,12 @@ function updateBolts(dt) {
     bolt.life -= dt;
     let hit = false;
 
-    // 1. Check Collision with World Obstacles (Pillars, Walls, Rocks)
     if (checkProjectileCollision(bolt.mesh.position, 0.25)) {
       burst(bolt.mesh.position, 0x73eff7, 10);
       playSound("hit");
       hit = true;
     }
 
-    // 2. Check Collision with Enemies
     if (!hit) {
       for (let j = enemies.length - 1; j >= 0; j -= 1) {
         const enemy = enemies[j];
@@ -1423,7 +1561,6 @@ function updateBolts(dt) {
   }
 }
 
-// Enemy Projectiles: Travels towards player and checks obstacles / shield
 function updateEnemyBolts(dt) {
   for (let i = enemyBolts.length - 1; i >= 0; i -= 1) {
     const bolt = enemyBolts[i];
@@ -1431,13 +1568,11 @@ function updateEnemyBolts(dt) {
     bolt.life -= dt;
     let hit = false;
 
-    // Obstacle collision
     if (checkProjectileCollision(bolt.mesh.position, 0.3)) {
       burst(bolt.mesh.position, 0xbd3fff, 8);
       hit = true;
     }
 
-    // Player collision
     const playerCenter = player.group.position.clone().add(new THREE.Vector3(0, 1.3, 0));
     if (!hit && bolt.mesh.position.distanceTo(playerCenter) < 1.2) {
       hit = true;
@@ -1536,7 +1671,7 @@ function updateHud() {
     message.innerHTML = "Has caído en batalla<small>Pulsa R para volver a intentarlo</small>";
   } else if (gameFinished) {
     objectiveText.textContent = "¡EL REINO DEL ALBA HA SIDO SALVADO!";
-    message.innerHTML = "¡Victoria Legendaria!<small>Récord registrado en la Base de Datos</small>";
+    message.innerHTML = "¡Victoria Legendaria!<small>Récord registrado en tu Perfil</small>";
   } else {
     if (currentLevel === 1) {
       objectiveText.textContent = `Cristales (${activeCrystals}/3) · Guardianes (${player.enemiesDefeated}/6)`;
@@ -1585,21 +1720,21 @@ function toggleCameraMode() {
 }
 
 function updateUpgradeUI() {
-  modalEssenceCount.textContent = playerEssence;
-  essenceCountText.textContent = playerEssence;
+  modalEssenceCount.textContent = profileManager.user.essence;
+  essenceCountText.textContent = profileManager.user.essence;
 
   const bowCost = upgradeCosts.bow[upgrades.bow] || 0;
-  btnUpgradeBow.disabled = upgrades.bow >= 3 || playerEssence < bowCost;
+  btnUpgradeBow.disabled = upgrades.bow >= 3 || profileManager.user.essence < bowCost;
   btnUpgradeBow.innerHTML = upgrades.bow >= 3 ? "NIVEL MÁXIMO" : `Mejorar <span class="cost-tag">${bowCost} 💎</span>`;
   document.querySelectorAll("#bow-dots .dot").forEach((d, i) => d.classList.toggle("active", i < upgrades.bow));
 
   const droneCost = upgradeCosts.drone[upgrades.drone] || 0;
-  btnUpgradeDrone.disabled = upgrades.drone >= 3 || playerEssence < droneCost;
+  btnUpgradeDrone.disabled = upgrades.drone >= 3 || profileManager.user.essence < droneCost;
   btnUpgradeDrone.innerHTML = upgrades.drone >= 3 ? "NIVEL MÁXIMO" : `Mejorar <span class="cost-tag">${droneCost} 💎</span>`;
   document.querySelectorAll("#drone-dots .dot").forEach((d, i) => d.classList.toggle("active", i < upgrades.drone));
 
   const armorCost = upgradeCosts.armor[upgrades.armor] || 0;
-  btnUpgradeArmor.disabled = upgrades.armor >= 3 || playerEssence < armorCost;
+  btnUpgradeArmor.disabled = upgrades.armor >= 3 || profileManager.user.essence < armorCost;
   btnUpgradeArmor.innerHTML = upgrades.armor >= 3 ? "NIVEL MÁXIMO" : `Mejorar <span class="cost-tag">${armorCost} 💎</span>`;
   document.querySelectorAll("#armor-dots .dot").forEach((d, i) => d.classList.toggle("active", i < upgrades.armor));
 }
@@ -1608,8 +1743,7 @@ function buyUpgrade(tree) {
   const currentLvl = upgrades[tree];
   if (currentLvl >= 3) return;
   const cost = upgradeCosts[tree][currentLvl];
-  if (playerEssence >= cost) {
-    playerEssence -= cost;
+  if (profileManager.spendEssence(cost)) {
     upgrades[tree] += 1;
     playSound("upgrade");
     vibrate(40);
@@ -1619,6 +1753,231 @@ function buyUpgrade(tree) {
   }
 }
 
+// ==========================================================================
+// Wardrobe Shop & 3D Customization
+// ==========================================================================
+function updateWardrobeUI() {
+  if (wardrobeEssenceVal) {
+    wardrobeEssenceVal.textContent = profileManager.user.essence;
+  }
+  if (!wardrobeItemsGrid) return;
+  wardrobeItemsGrid.innerHTML = "";
+
+  const items = ACCESSORY_CATALOG[currentWardrobeTab] || [];
+  const equipped = profileManager.user.equipped[currentWardrobeTab === "skins" ? "skin" : currentWardrobeTab];
+
+  items.forEach((item) => {
+    const isUnlocked = profileManager.isItemUnlocked(item.id);
+    const isEquipped = equipped === item.id;
+
+    const card = document.createElement("div");
+    card.className = `wardrobe-card ${isEquipped ? "equipped-card" : ""}`;
+
+    let actionBtnHtml = "";
+    if (isEquipped) {
+      actionBtnHtml = `<button class="btn-wardrobe-action equipped" disabled>✓ Equipado</button>`;
+    } else if (isUnlocked) {
+      actionBtnHtml = `<button class="btn-wardrobe-action btn-equip" data-cat="${currentWardrobeTab}" data-id="${item.id}">Equipar</button>`;
+    } else {
+      actionBtnHtml = `<button class="btn-wardrobe-action buy btn-buy" data-cat="${currentWardrobeTab}" data-id="${item.id}" data-cost="${item.cost}">Comprar ${item.cost} 💎</button>`;
+    }
+
+    card.innerHTML = `
+      <div class="wardrobe-card-info">
+        <h4>${item.name}</h4>
+        <p>${item.desc}</p>
+      </div>
+      ${actionBtnHtml}
+    `;
+
+    wardrobeItemsGrid.appendChild(card);
+  });
+
+  // Attach button listeners
+  wardrobeItemsGrid.querySelectorAll(".btn-equip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const cat = btn.dataset.cat === "skins" ? "skin" : btn.dataset.cat;
+      const id = btn.dataset.id;
+      profileManager.equipItem(cat, id);
+      wardrobeManager.equipAccessory(cat, id);
+      playSound("upgrade");
+      updateWardrobeUI();
+      showToast(`👗 ¡Equipado con éxito!`);
+    });
+  });
+
+  wardrobeItemsGrid.querySelectorAll(".btn-buy").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const cost = parseInt(btn.dataset.cost, 10);
+      const cat = btn.dataset.cat === "skins" ? "skin" : btn.dataset.cat;
+      const id = btn.dataset.id;
+      if (profileManager.spendEssence(cost)) {
+        profileManager.unlockItem(id);
+        profileManager.equipItem(cat, id);
+        wardrobeManager.equipAccessory(cat, id);
+        playSound("upgrade");
+        vibrate(40);
+        updateWardrobeUI();
+        showToast(`✨ ¡Has adquirido y equipado un nuevo accesorio!`);
+      } else {
+        showToast("❌ No tienes suficiente Esencia para este accesorio");
+      }
+    });
+  });
+}
+
+wardrobeTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    wardrobeTabs.forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentWardrobeTab = tab.dataset.tab;
+    updateWardrobeUI();
+  });
+});
+
+function openWardrobe() {
+  isWardrobeOpen = true;
+  updateWardrobeUI();
+  wardrobeModal.classList.remove("hidden");
+}
+
+function closeWardrobe() {
+  isWardrobeOpen = false;
+  wardrobeModal.classList.add("hidden");
+}
+
+btnWardrobeOpen.addEventListener("click", openWardrobe);
+btnCloseWardrobe.addEventListener("click", closeWardrobe);
+btnOpenShopMenu.addEventListener("click", () => {
+  openWardrobe();
+});
+
+// ==========================================================================
+// Settings, Pause & Audio Options
+// ==========================================================================
+function openSettings() {
+  isSettingsOpen = true;
+  settingsModal.classList.remove("hidden");
+}
+
+function closeSettings() {
+  isSettingsOpen = false;
+  settingsModal.classList.add("hidden");
+}
+
+btnSettingsOpen.addEventListener("click", openSettings);
+btnCloseSettings.addEventListener("click", closeSettings);
+btnOpenSettingsMenu.addEventListener("click", openSettings);
+btnResumeGame.addEventListener("click", () => {
+  closeSettings();
+  if (isGamePaused && mainMenuOverlay.classList.contains("hidden")) {
+    isGamePaused = false;
+  }
+});
+
+btnRestartLevel.addEventListener("click", () => {
+  closeSettings();
+  loadLevel(currentLevel);
+  isGamePaused = false;
+  showToast("🔄 Nivel reiniciado");
+});
+
+btnReturnMainMenu.addEventListener("click", () => {
+  closeSettings();
+  isGamePaused = true;
+  mainMenuOverlay.classList.remove("hidden");
+});
+
+sliderVolumeMaster.addEventListener("input", (e) => {
+  audioSettings.master = parseInt(e.target.value, 10) / 100;
+  valVolumeMaster.textContent = `${e.target.value}%`;
+  musicEngine.setVolume(audioSettings.master * audioSettings.music);
+});
+
+sliderVolumeMusic.addEventListener("input", (e) => {
+  audioSettings.music = parseInt(e.target.value, 10) / 100;
+  valVolumeMusic.textContent = `${e.target.value}%`;
+  musicEngine.setVolume(audioSettings.master * audioSettings.music);
+});
+
+sliderVolumeSfx.addEventListener("input", (e) => {
+  audioSettings.sfx = parseInt(e.target.value, 10) / 100;
+  valVolumeSfx.textContent = `${e.target.value}%`;
+});
+
+sliderMouseSens.addEventListener("input", (e) => {
+  const val = parseInt(e.target.value, 10);
+  audioSettings.mouseSensitivity = 0.0012 + val * 0.0004;
+  valMouseSens.textContent = val;
+});
+
+selectShadows.addEventListener("change", (e) => {
+  if (e.target.value === "high") {
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+  } else if (e.target.value === "low") {
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.BasicShadowMap;
+  } else {
+    renderer.shadowMap.enabled = false;
+  }
+  renderer.shadowMap.needsUpdate = true;
+});
+
+// ==========================================================================
+// Profile & User Login Modal
+// ==========================================================================
+function openProfile() {
+  isProfileOpen = true;
+  updateProfileUI();
+  profileModal.classList.remove("hidden");
+}
+
+function closeProfile() {
+  isProfileOpen = false;
+  profileModal.classList.add("hidden");
+}
+
+btnProfileOpen.addEventListener("click", openProfile);
+btnMenuSwitchUser.addEventListener("click", openProfile);
+btnCloseProfile.addEventListener("click", closeProfile);
+
+avatarOptButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    avatarOptButtons.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentSelectedAvatar = btn.dataset.avatar;
+  });
+});
+
+profileForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = inputProfileName.value.trim() || "Guerrera del Alba";
+  profileManager.login(name, currentSelectedAvatar);
+  closeProfile();
+  showToast(`👤 Perfil actualizado: ${name}`);
+});
+
+// ==========================================================================
+// Main Menu Start Game Button
+// ==========================================================================
+btnStartGame.addEventListener("click", () => {
+  initAudio();
+  mainMenuOverlay.classList.add("hidden");
+  isGamePaused = false;
+  if (!musicEngine.isPlaying) {
+    musicEngine.start();
+    musicEngine.setVolume(audioSettings.master * audioSettings.music);
+    updateMusicUI();
+  }
+  showToast("⚔️ ¡Aventura Iniciada!");
+});
+
+// Chest Open Event Listener
+btnOpenChest.addEventListener("click", tryOpenNearestChest);
+btnTouchInteract.addEventListener("click", tryOpenNearestChest);
+
+// Level Completion & Real Record Saving
 function checkLevelCompletion() {
   if (levelCleared || gameOver || gameFinished) return;
 
@@ -1646,6 +2005,9 @@ function checkLevelCompletion() {
       setTimeout(() => { levelBanner.classList.remove("hidden"); }, 1200);
     } else {
       gameFinished = true;
+      const totalScore = Math.floor(profileManager.user.essence * 5 + player.health * 10 + player.enemiesDefeated * 100);
+      const timeSec = Math.max(1, Math.floor(elapsed));
+      profileManager.recordScore(totalScore, timeSec, 9, currentLevel);
       setTimeout(() => { openLeaderboard(true); }, 1500);
     }
   }
@@ -1657,35 +2019,35 @@ btnNextLevel.addEventListener("click", () => {
   }
 });
 
-// Leaderboard Database Logic
+// Real Leaderboard System
 async function fetchScores() {
-  leaderboardBody.innerHTML = '<tr><td colspan="5" class="loading-td">Cargando récords ancestrales...</td></tr>';
+  leaderboardBody.innerHTML = '<tr><td colspan="5" class="loading-td">Cargando récords...</td></tr>';
+  const localList = profileManager.getLocalLeaderboard();
+
   try {
     const res = await fetch("/api/scores");
     const data = await res.json();
-    if (data.source === "vercel_postgres") {
+    if (data.source === "vercel_postgres" && data.scores && data.scores.length > 0) {
       dbStatusTag.textContent = "Conectado a Vercel Postgres";
-    } else {
-      dbStatusTag.textContent = "Modo Demo / En Memoria";
+      renderLeaderboard(data.scores);
+      return;
     }
+  } catch (err) {}
 
-    const list = data.scores || [];
-    leaderboardBody.innerHTML = list.map((item, idx) => `
-      <tr>
-        <td><strong>#${idx + 1}</strong></td>
-        <td>${item.player_name || "Anónimo"}</td>
-        <td><strong style="color: #6cf5ff;">${item.score.toLocaleString()}</strong></td>
-        <td>${item.crystals}</td>
-        <td>${item.time_seconds}s</td>
-      </tr>
-    `).join("");
-  } catch (err) {
-    dbStatusTag.textContent = "Modo Local";
-    leaderboardBody.innerHTML = `
-      <tr><td>#1</td><td>Aura</td><td><strong style="color: #6cf5ff;">4,500</strong></td><td>9</td><td>82s</td></tr>
-      <tr><td>#2</td><td>Kael</td><td><strong style="color: #6cf5ff;">3,800</strong></td><td>7</td><td>95s</td></tr>
-    `;
-  }
+  dbStatusTag.textContent = "Base de Datos Local / Offline";
+  renderLeaderboard(localList);
+}
+
+function renderLeaderboard(list) {
+  leaderboardBody.innerHTML = list.map((item, idx) => `
+    <tr>
+      <td><strong>#${idx + 1}</strong></td>
+      <td>${item.avatar || "🏹"} ${item.player_name || "Anónimo"}</td>
+      <td><strong style="color: #6cf5ff;">${(item.score || 0).toLocaleString()}</strong></td>
+      <td>${item.crystals || 0}</td>
+      <td>${item.time_seconds || 0}s</td>
+    </tr>
+  `).join("");
 }
 
 function openLeaderboard(allowSubmit = false) {
@@ -1693,9 +2055,10 @@ function openLeaderboard(allowSubmit = false) {
   leaderboardModal.classList.remove("hidden");
   fetchScores();
   if (allowSubmit) {
-    const totalScore = Math.floor(playerEssence * 5 + player.health * 10 + player.enemiesDefeated * 100);
+    const totalScore = Math.floor(profileManager.user.essence * 5 + player.health * 10 + player.enemiesDefeated * 100);
     summaryScore.textContent = totalScore.toLocaleString();
     summaryTime.textContent = Math.max(1, Math.floor(elapsed));
+    if (playerNameInput) playerNameInput.value = profileManager.user.name;
     scoreSubmitBox.classList.remove("hidden");
   } else {
     scoreSubmitBox.classList.add("hidden");
@@ -1709,24 +2072,18 @@ function closeLeaderboard() {
 
 scoreForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const name = playerNameInput.value.trim() || "Guerrera Ancestral";
-  const totalScore = Math.floor(playerEssence * 5 + player.health * 10 + player.enemiesDefeated * 100);
+  const name = playerNameInput.value.trim() || profileManager.user.name;
+  const totalScore = Math.floor(profileManager.user.essence * 5 + player.health * 10 + player.enemiesDefeated * 100);
   const timeSec = Math.max(1, Math.floor(elapsed));
 
-  try {
-    await fetch("/api/scores", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ player_name: name, score: totalScore, crystals: 9, time_seconds: timeSec }),
-    });
-    scoreSubmitBox.classList.add("hidden");
-    fetchScores();
-  } catch (err) {
-    scoreSubmitBox.classList.add("hidden");
-  }
+  await profileManager.recordScore(totalScore, timeSec, 9, currentLevel);
+  scoreSubmitBox.classList.add("hidden");
+  fetchScores();
+  showToast("🏆 ¡Récord guardado con éxito!");
 });
 
 btnLeaderboard.addEventListener("click", () => openLeaderboard(false));
+btnOpenRecordsMenu.addEventListener("click", () => openLeaderboard(false));
 btnCloseLeaderboard.addEventListener("click", closeLeaderboard);
 
 btnUpgradeOpen.addEventListener("click", () => {
@@ -1745,11 +2102,6 @@ btnUpgradeArmor.addEventListener("click", () => buyUpgrade("armor"));
 // Mobile Touch Virtual Joystick & Tap to Aim / Look
 function handleTouchStart(e) {
   initAudio();
-  if (!musicEngine.isPlaying) {
-    musicEngine.start();
-    updateMusicUI();
-  }
-
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
     if (t.clientX < window.innerWidth * 0.44) {
@@ -1761,9 +2113,9 @@ function handleTouchStart(e) {
         updateJoystick(t.clientX, t.clientY);
       }
     } else {
-      if (!inspectMode && !isLeaderboardOpen && !isUpgradeOpen) {
+      if (!isGamePaused && !inspectMode && !isLeaderboardOpen && !isUpgradeOpen && !isWardrobeOpen && !isProfileOpen && !isSettingsOpen) {
         const target = e.target;
-        if (!target.closest("button") && !target.closest("input") && !target.closest(".modal-box")) {
+        if (!target.closest("button") && !target.closest("input") && !target.closest(".modal-box") && !target.closest(".main-menu-card")) {
           touchLookId = t.identifier;
           prevTouchLook = { x: t.clientX, y: t.clientY };
           if (cameraMode === "tpp") {
@@ -1842,7 +2194,6 @@ btnCamToggle.addEventListener("click", toggleCameraMode);
 
 function resetGame() {
   elapsed = 0;
-  playerEssence = 0;
   player.enemiesDefeated = 0;
   gameOver = false;
   gameFinished = false;
@@ -1850,6 +2201,8 @@ function resetGame() {
   loadLevel(1);
   updateUpgradeUI();
   closeLeaderboard();
+  closeSettings();
+  closeWardrobe();
 }
 
 function setInspectMode(active) {
@@ -1879,32 +2232,34 @@ window.addEventListener("resize", resizeGame);
 window.addEventListener("orientationchange", () => setTimeout(resizeGame, 100));
 
 canvas.addEventListener("click", () => {
-  if (cameraMode === "fps" && !inspectMode && !isLeaderboardOpen && !isUpgradeOpen) {
+  if (!isGamePaused && cameraMode === "fps" && !inspectMode && !isLeaderboardOpen && !isUpgradeOpen && !isWardrobeOpen && !isSettingsOpen) {
     try { canvas.requestPointerLock(); } catch (e) {}
   }
 });
 
 window.addEventListener("mousemove", (e) => {
-  if (document.pointerLockElement === canvas && cameraMode === "fps" && !inspectMode) {
-    cameraYaw -= e.movementX * 0.0024;
-    cameraPitch = THREE.MathUtils.clamp(cameraPitch - e.movementY * 0.0022, -1.25, 1.25);
+  if (document.pointerLockElement === canvas && cameraMode === "fps" && !inspectMode && !isGamePaused) {
+    cameraYaw -= e.movementX * audioSettings.mouseSensitivity;
+    cameraPitch = THREE.MathUtils.clamp(cameraPitch - e.movementY * (audioSettings.mouseSensitivity * 0.9), -1.25, 1.25);
   }
 });
 
 window.addEventListener("keydown", (e) => {
   initAudio();
-  if (!musicEngine.isPlaying) {
-    musicEngine.start();
-    updateMusicUI();
-  }
-
   const k = e.key.toLowerCase();
   keys.add(k);
-  if (e.key === " " && !inspectMode) { e.preventDefault(); shoot(); }
+
+  if (e.key === " " && !inspectMode && !isGamePaused) { e.preventDefault(); shoot(); }
   if (e.key === "Shift") isSprinting = true;
+  if (k === "e") tryOpenNearestChest();
   if (k === "q") triggerDroneShockwave();
   if (k === "c") toggleCameraMode();
   if (k === "m") toggleMusic();
+  if (k === "b") openWardrobe();
+  if (k === "p") {
+    if (isSettingsOpen) closeSettings();
+    else openSettings();
+  }
   if (k === "r") resetGame();
   if (k === "v") setInspectMode(!inspectMode);
   if (k === "u") {
@@ -1914,9 +2269,15 @@ window.addEventListener("keydown", (e) => {
   }
   if (k === "t") openLeaderboard(false);
   if (e.key === "Escape") {
-    closeLeaderboard();
-    upgradeModal.classList.add("hidden");
-    if (inspectMode) setInspectMode(false);
+    if (isSettingsOpen) closeSettings();
+    else if (isWardrobeOpen) closeWardrobe();
+    else if (isProfileOpen) closeProfile();
+    else if (isLeaderboardOpen) closeLeaderboard();
+    else if (isUpgradeOpen) {
+      isUpgradeOpen = false;
+      upgradeModal.classList.add("hidden");
+    } else if (inspectMode) setInspectMode(false);
+    else if (!isGamePaused) openSettings();
   }
 });
 
@@ -1941,14 +2302,10 @@ canvas.addEventListener("pointermove", (e) => {
 
 canvas.addEventListener("pointerdown", (e) => {
   initAudio();
-  if (!musicEngine.isPlaying) {
-    musicEngine.start();
-    updateMusicUI();
-  }
   if (inspectMode) {
     isDragging = true;
     prevMousePos = { x: e.clientX, y: e.clientY };
-  } else if (e.pointerType === "mouse") {
+  } else if (e.pointerType === "mouse" && !isGamePaused) {
     shoot();
   }
 });
@@ -1971,17 +2328,14 @@ btnInspect.addEventListener("click", () => setInspectMode(true));
 btnExitInspect.addEventListener("click", () => setInspectMode(false));
 
 // ==========================================================================
-// Main Game Loop with Dynamic Music Intensity
+// Main Game Loop with Pause, Chests & Dynamic Music Intensity
 // ==========================================================================
 function animate(frameTime = performance.now()) {
   const dt = Math.min((frameTime - lastFrameTime) / 1000, 0.033);
   lastFrameTime = frameTime;
-  elapsed += dt;
 
-  if (inspectMode || isLeaderboardOpen || isUpgradeOpen) {
-    player.heroine.update(dt, false, null, false, null);
-    updateParticles(dt);
-  } else if (!gameOver && !gameFinished) {
+  if (!isGamePaused && !gameOver && !gameFinished) {
+    elapsed += dt;
     updatePlayer(dt);
     updateCrystals(dt);
     updateEnemies(dt);
@@ -1989,6 +2343,19 @@ function animate(frameTime = performance.now()) {
     updateEnemyBolts(dt);
     updateParticles(dt);
     updateAmbientMotes(dt);
+
+    // Update Chests & Proximity Check
+    if (chestManager) {
+      activeNearChest = chestManager.update(dt, player.group.position);
+      if (activeNearChest) {
+        chestPrompt.classList.remove("hidden");
+        btnTouchInteract.classList.remove("hidden");
+      } else {
+        chestPrompt.classList.add("hidden");
+        btnTouchInteract.classList.add("hidden");
+      }
+    }
+
     checkLevelCompletion();
 
     // Dynamic Battle Music Intensity
@@ -2007,7 +2374,7 @@ function animate(frameTime = performance.now()) {
         musicEngine.setIntensity("ambient");
       }
     }
-  } else {
+  } else if (player.heroine) {
     player.heroine.update(dt, false, null, false, null);
     updateParticles(dt);
     updateAmbientMotes(dt);
@@ -2019,10 +2386,11 @@ function animate(frameTime = performance.now()) {
   requestAnimationFrame(animate);
 }
 
-// Start Game
+// Start Game Setup
 createWorld();
 initPlayer();
 loadLevel(1);
 resizeGame();
 camera.position.set(-31, 2.3, 18);
+updateProfileUI();
 animate();
