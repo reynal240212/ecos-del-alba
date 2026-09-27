@@ -3,40 +3,58 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#071012" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Ecos del Alba - Videojuego 3D</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="game-shell">
-      <canvas id="game" aria-label="Demo 3D de Ecos del Alba"></canvas>
+      <canvas id="game" aria-label="Juego 3D de Ecos del Alba"></canvas>
 
-      <!-- HUD Principal -->
+      <!-- HUD Superior Adaptable -->
       <header class="hud" aria-label="Estado del juego">
-        <div class="identity">
-          <strong>Ecos del Alba</strong>
-          <span id="level-title">NIVEL 1 · EL DESPERTAR</span>
+        <!-- Columna Izquierda: Identidad y Barras -->
+        <div class="hud-left">
+          <div class="identity">
+            <span class="game-title">Ecos del Alba</span>
+            <span id="level-title" class="level-tag">NIVEL 1</span>
+          </div>
+          <div class="meters">
+            <label class="meter-item">
+              <span class="meter-label">HP</span>
+              <meter id="health" min="0" max="100" value="100"></meter>
+            </label>
+            <label class="meter-item">
+              <span class="meter-label">EN</span>
+              <meter id="energy" min="0" max="100" value="100"></meter>
+            </label>
+          </div>
         </div>
-        <div class="mission">
-          <span class="mission-label">MISIÓN PRINCIPAL</span>
-          <strong id="objective">Activa los 3 cristales ancestrales (0/3)</strong>
-          <span id="sub-objective" class="sub-objective">Secundaria: Purifica a los guardianes (0/6)</span>
+
+        <!-- Columna Central: Misión y Objetivos -->
+        <div class="hud-center">
+          <div class="mission-pill">
+            <span class="mission-pulse"></span>
+            <strong id="objective">Activa los 3 cristales (0/3)</strong>
+          </div>
+          <span id="sub-objective" class="sub-objective">Secundaria: Purifica guardianes (0/6)</span>
         </div>
-        <div class="meters">
-          <label><span>VIDA</span><meter id="health" min="0" max="100" value="100"></meter></label>
-          <label><span>ENERGÍA</span><meter id="energy" min="0" max="100" value="100"></meter></label>
-        </div>
-        <div class="hud-buttons">
+
+        <!-- Columna Derecha: Esencia y Acciones -->
+        <div class="hud-right">
           <div class="essence-badge" title="Esencia Ancestral para mejoras">
             💎 <span id="essence-count">0</span>
           </div>
-          <button id="btn-upgrade-open" class="hud-action-btn" title="Taller de Mejoras de Avatar (Tecla U)">
+          <button id="btn-upgrade-open" class="hud-btn" title="Mejoras de Avatar (Tecla U)">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
             </svg>
-            <span>Mejoras</span>
-            <kbd>U</kbd>
+            <span class="btn-text">Mejoras</span>
+            <kbd class="kbd-hint">U</kbd>
           </button>
-          <button id="btn-leaderboard" class="hud-action-btn" title="Tabla de Clasificación (Tecla T)">
+          <button id="btn-leaderboard" class="hud-btn" title="Clasificación (Tecla T)">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
               <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
@@ -45,17 +63,17 @@
               <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
               <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
             </svg>
-            <span>Récords</span>
-            <kbd>T</kbd>
+            <span class="btn-text">Récords</span>
+            <kbd class="kbd-hint">T</kbd>
           </button>
-          <button id="btn-inspect" class="hud-action-btn" title="Modo Inspección 3D (Tecla V)">
+          <button id="btn-inspect" class="hud-btn" title="Modo Inspección 3D (Tecla V)">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
               <polyline points="2 17 12 22 22 17"></polyline>
               <polyline points="2 12 12 17 22 12"></polyline>
             </svg>
-            <span>Modelo 3D</span>
-            <kbd>V</kbd>
+            <span class="btn-text">Modelo 3D</span>
+            <kbd class="kbd-hint">V</kbd>
           </button>
         </div>
       </header>
@@ -76,7 +94,7 @@
         <div class="level-banner-content">
           <span class="banner-badge">MISIÓN CUMPLIDA</span>
           <h2 id="banner-title">¡NIVEL 1 COMPLETADO!</h2>
-          <p id="banner-desc">El portal ancestral se ha sintonizado. Viajando al siguiente reino...</p>
+          <p id="banner-desc">Has sintonizado el portal ancestral. Listo para avanzar.</p>
           <button id="btn-next-level" class="btn-next-level">Continuar al Siguiente Nivel →</button>
         </div>
       </div>
@@ -90,7 +108,7 @@
 
         <!-- Botones de Acción Táctiles (Derecha) -->
         <div class="touch-actions">
-          <button id="btn-touch-upgrades" class="touch-btn touch-btn-sub" aria-label="Mejoras de Avatar">
+          <button id="btn-touch-upgrades" class="touch-btn touch-btn-sub" aria-label="Mejoras">
             ⚡
             <span>Mejoras</span>
           </button>
@@ -98,9 +116,9 @@
             💥
             <span>Onda</span>
           </button>
-          <button id="btn-touch-shoot" class="touch-btn touch-btn-shoot" aria-label="Disparar Arco de Luz">
+          <button id="btn-touch-shoot" class="touch-btn touch-btn-shoot" aria-label="Disparar">
             🏹
-            <span>Disparar</span>
+            <span>Disparo</span>
           </button>
         </div>
       </div>
@@ -110,61 +128,58 @@
         <div class="modal-box upgrade-box">
           <div class="modal-header">
             <h3>⚡ TALLER RÚNICO: MEJORAS DE AVATAR</h3>
-            <button id="btn-close-upgrade" class="modal-close">&times;</button>
+            <button id="btn-close-upgrade" class="modal-close" aria-label="Cerrar">&times;</button>
           </div>
           <div class="upgrade-wallet">
             Tu Esencia Ancestral: <strong id="modal-essence-count">0</strong> 💎
           </div>
           <div class="upgrade-grid">
-            <!-- Arco de Luz -->
             <div class="upgrade-card" data-tree="bow">
               <div class="upgrade-card-icon">🏹</div>
               <div class="upgrade-card-info">
                 <h4>Arco de Luz</h4>
-                <p id="bow-upgrade-desc">Niv 1: Daño base (25) y cadencia estándar.</p>
+                <p id="bow-upgrade-desc">Aumenta daño y desbloquea flechas triples en abanico.</p>
                 <div class="upgrade-level-dots" id="bow-dots">
                   <span class="dot active"></span><span class="dot"></span><span class="dot"></span>
                 </div>
               </div>
               <button class="btn-buy-upgrade" id="btn-upgrade-bow" data-tree="bow">
-                Mejorar <span class="cost-tag">300 💎</span>
+                Mejorar <span class="cost-tag">250 💎</span>
               </button>
             </div>
 
-            <!-- Dron Compañero -->
             <div class="upgrade-card" data-tree="drone">
               <div class="upgrade-card-icon">🤖</div>
               <div class="upgrade-card-info">
                 <h4>Dron Compañero</h4>
-                <p id="drone-upgrade-desc">Niv 1: Ráfaga de apoyo sincronizada.</p>
+                <p id="drone-upgrade-desc">Láser de plasma y escudo deflector orbital.</p>
                 <div class="upgrade-level-dots" id="drone-dots">
                   <span class="dot active"></span><span class="dot"></span><span class="dot"></span>
                 </div>
               </div>
               <button class="btn-buy-upgrade" id="btn-upgrade-drone" data-tree="drone">
-                Mejorar <span class="cost-tag">250 💎</span>
+                Mejorar <span class="cost-tag">200 💎</span>
               </button>
             </div>
 
-            <!-- Armadura Rúnica -->
             <div class="upgrade-card" data-tree="armor">
               <div class="upgrade-card-icon">🛡️</div>
               <div class="upgrade-card-info">
                 <h4>Armadura Rúnica</h4>
-                <p id="armor-upgrade-desc">Niv 1: Salud 100 y velocidad estándar.</p>
+                <p id="armor-upgrade-desc">Salud máxima aumentada, mayor velocidad y aura luminosa.</p>
                 <div class="upgrade-level-dots" id="armor-dots">
                   <span class="dot active"></span><span class="dot"></span><span class="dot"></span>
                 </div>
               </div>
               <button class="btn-buy-upgrade" id="btn-upgrade-armor" data-tree="armor">
-                Mejorar <span class="cost-tag">250 💎</span>
+                Mejorar <span class="cost-tag">200 💎</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Panel de Inspección de Modelo 3D (Hoja de Referencia Aurora Studios) -->
+      <!-- Panel de Inspección de Modelo 3D (Aurora Studios Reference Sheet) -->
       <aside id="inspect-panel" class="inspect-panel hidden" aria-label="Inspección de Modelo 3D">
         <div class="inspect-header">
           <div class="inspect-badge">AURORA STUDIOS</div>
@@ -181,7 +196,7 @@
         </nav>
         <div class="inspect-footer">
           <button id="btn-exit-inspect" class="exit-btn">← Volver al Juego <kbd>ESC</kbd></button>
-          <span class="inspect-hint">Arrastra con el ratón o desliza con el dedo para rotar 360°</span>
+          <span class="inspect-hint">Arrastra o desliza para rotar 360°</span>
         </div>
       </aside>
 
@@ -199,7 +214,7 @@
                 <tr>
                   <th>#</th>
                   <th>Guerrero/a</th>
-                  <th>Puntuación</th>
+                  <th>Puntos</th>
                   <th>Cristales</th>
                   <th>Tiempo</th>
                 </tr>
@@ -223,7 +238,7 @@
       <div class="reticle" aria-hidden="true"></div>
       <div id="message" class="message" aria-live="polite"></div>
 
-      <!-- Barra de controles para teclado -->
+      <!-- Barra de controles inferior (solo visible en pantallas grandes con ratón) -->
       <footer class="controls">
         <span><kbd>WASD</kbd> Mover</span>
         <span><kbd>Mouse</kbd> Apuntar</span>

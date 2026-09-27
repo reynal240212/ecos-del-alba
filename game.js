@@ -886,7 +886,9 @@ function updateCamera(dt) {
     camera.position.lerp(targetPos, 1 - Math.pow(0.001, dt));
     camera.lookAt(lookTarget);
   } else {
-    const desired = player.group.position.clone().add(new THREE.Vector3(12, 18, 18));
+    const isPortrait = camera.aspect < 1;
+    const camOffset = isPortrait ? new THREE.Vector3(14, 26, 26) : new THREE.Vector3(12, 18, 18);
+    const desired = player.group.position.clone().add(camOffset);
     camera.position.lerp(desired, 1 - Math.pow(0.002, dt));
     camera.lookAt(player.group.position.clone().add(new THREE.Vector3(0, 1.2, 0)));
   }
@@ -1081,19 +1083,30 @@ btnUpgradeBow.addEventListener("click", () => buyUpgrade("bow"));
 btnUpgradeDrone.addEventListener("click", () => buyUpgrade("drone"));
 btnUpgradeArmor.addEventListener("click", () => buyUpgrade("armor"));
 
-// Mobile Touch Virtual Joystick
+// Mobile Touch Virtual Joystick & Tap to Shoot
 function handleTouchStart(e) {
   initAudio();
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
-    // Left 45% of screen initiates joystick
-    if (t.clientX < window.innerWidth * 0.45 && !joystick.active) {
-      joystick.active = true;
-      joystick.identifier = t.identifier;
-      const rect = joystickBase.getBoundingClientRect();
-      joystick.origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-      updateJoystick(t.clientX, t.clientY);
-      break;
+    // Left 44% of screen controls movement joystick
+    if (t.clientX < window.innerWidth * 0.44) {
+      if (!joystick.active) {
+        joystick.active = true;
+        joystick.identifier = t.identifier;
+        const rect = joystickBase.getBoundingClientRect();
+        joystick.origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        updateJoystick(t.clientX, t.clientY);
+      }
+    } else {
+      // Right side of screen: tap to aim and shoot (if not clicking UI buttons/modals)
+      if (!inspectMode && !isLeaderboardOpen && !isUpgradeOpen) {
+        const target = e.target;
+        if (!target.closest("button") && !target.closest("input") && !target.closest(".modal-box")) {
+          mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
+          mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
+          shoot();
+        }
+      }
     }
   }
 }
@@ -1125,7 +1138,7 @@ function handleTouchEnd(e) {
 function updateJoystick(touchX, touchY) {
   const dx = touchX - joystick.origin.x;
   const dy = touchY - joystick.origin.y;
-  const maxRadius = 45;
+  const maxRadius = 40;
   const dist = Math.hypot(dx, dy);
   const angle = Math.atan2(dy, dx);
   const clampedDist = Math.min(dist, maxRadius);
@@ -1143,10 +1156,10 @@ window.addEventListener("touchend", handleTouchEnd, { passive: false });
 window.addEventListener("touchcancel", handleTouchEnd, { passive: false });
 
 // Mobile Touch Action Buttons
-btnTouchShoot.addEventListener("touchstart", (e) => { e.preventDefault(); shoot(); });
-btnTouchShoot.addEventListener("pointerdown", (e) => { shoot(); });
-btnTouchSpecial.addEventListener("touchstart", (e) => { e.preventDefault(); triggerDroneShockwave(); });
-btnTouchSpecial.addEventListener("pointerdown", (e) => { triggerDroneShockwave(); });
+btnTouchShoot.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); shoot(); });
+btnTouchShoot.addEventListener("pointerdown", (e) => { e.stopPropagation(); shoot(); });
+btnTouchSpecial.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); triggerDroneShockwave(); });
+btnTouchSpecial.addEventListener("pointerdown", (e) => { e.stopPropagation(); triggerDroneShockwave(); });
 btnTouchUpgrades.addEventListener("click", () => {
   isUpgradeOpen = true;
   updateUpgradeUI();
@@ -1179,12 +1192,19 @@ function setInspectMode(active) {
   }
 }
 
-// Window & Input Listeners
-window.addEventListener("resize", () => {
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
-  camera.aspect = window.innerWidth / window.innerHeight;
+// Window & Input Listeners (Adaptive Scaling for Mobile & Desktop)
+function resizeGame() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  renderer.setSize(width, height, false);
+  camera.aspect = width / height;
+  // Adaptive FOV for vertical smartphone screens
+  camera.fov = camera.aspect < 1 ? 68 : 50;
   camera.updateProjectionMatrix();
-});
+}
+
+window.addEventListener("resize", resizeGame);
+window.addEventListener("orientationchange", () => setTimeout(resizeGame, 100));
 
 window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
@@ -1279,8 +1299,6 @@ function animate(frameTime = performance.now()) {
 createWorld();
 initPlayer();
 loadLevel(1);
-renderer.setSize(window.innerWidth, window.innerHeight, false);
-camera.aspect = window.innerWidth / window.innerHeight;
-camera.updateProjectionMatrix();
+resizeGame();
 camera.position.set(-19, 18, 36);
 animate();

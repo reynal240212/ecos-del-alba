@@ -10,19 +10,24 @@
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 html, body, .game-shell {
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   margin: 0;
+  padding: 0;
   overflow: hidden;
+  position: fixed;
+  inset: 0;
   touch-action: none;
 }
 
 .game-shell {
-  position: relative;
-  background: #13262a;
+  background: #112226;
 }
 
 canvas {
@@ -33,92 +38,94 @@ canvas {
   touch-action: none;
 }
 
-/* HUD Principal */
+/* ==========================================================================
+   HUD Superior Adaptable (Mobile-First & Desktop Friendly)
+   ========================================================================== */
 .hud {
   position: absolute;
-  inset: 14px 18px auto;
-  display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(220px, 1.4fr) minmax(160px, 1fr) auto;
+  top: 12px;
+  left: 14px;
+  right: 14px;
+  display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 10px 16px;
-  border: 1px solid rgba(181, 237, 239, 0.24);
-  border-radius: 8px;
-  background: rgba(5, 17, 20, 0.85);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.38);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 1px solid rgba(181, 237, 239, 0.22);
+  border-radius: 10px;
+  background: rgba(5, 17, 21, 0.82);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(12px);
-  z-index: 10;
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 20;
+  pointer-events: none;
 }
 
-.identity strong {
-  display: block;
-  color: #e9fbff;
+.hud * {
+  pointer-events: auto;
+}
+
+/* Columna Izquierda: Identidad y Barras */
+.hud-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+}
+
+.game-title {
   font-family: Georgia, serif;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
+  font-weight: 700;
   letter-spacing: 0.04em;
+  color: #e9fbff;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.identity span {
+.level-tag {
   color: #5ef4ff;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 800;
-  text-transform: uppercase;
   letter-spacing: 0.06em;
-}
-
-.mission {
-  text-align: center;
-}
-
-.mission-label {
-  display: block;
-  margin-bottom: 2px;
-  color: #65e9f1;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-.mission strong {
-  display: block;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #ecfeff;
-}
-
-.sub-objective {
-  display: block;
-  font-size: 0.72rem;
-  color: #92bfbe;
-  margin-top: 1px;
+  text-transform: uppercase;
 }
 
 .meters {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 90px;
+}
+
+.meter-item {
+  display: flex;
+  align-items: center;
   gap: 5px;
 }
 
-.meters label {
-  display: grid;
-  grid-template-columns: 50px 1fr;
-  align-items: center;
-  gap: 8px;
-  color: #acc9c7;
-  font-size: 0.64rem;
+.meter-label {
+  font-size: 0.58rem;
   font-weight: 800;
+  color: #8fb8b7;
+  width: 16px;
 }
 
 meter {
-  width: 100%;
-  height: 9px;
+  flex: 1;
+  height: 8px;
   border: 0;
   border-radius: 2px;
-  background: #1a3032;
+  background: #172a2e;
 }
 
 meter::-webkit-meter-bar {
-  background: #1a3032;
+  background: #172a2e;
   border-radius: 2px;
 }
 
@@ -130,63 +137,250 @@ meter::-webkit-meter-bar {
   background: linear-gradient(90deg, #37d6e2, #6af7ff);
 }
 
-.hud-buttons {
+/* Columna Central: Misión y Objetivos */
+.hud-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.mission-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(14, 40, 48, 0.65);
+  border: 1px solid rgba(94, 244, 255, 0.3);
+  padding: 4px 10px;
+  border-radius: 20px;
+  max-width: 100%;
+}
+
+.mission-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #5ef4ff;
+  box-shadow: 0 0 8px #5ef4ff;
+  animation: pulseDot 1.5s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+
+.mission-pill strong {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ecfeff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sub-objective {
+  font-size: 0.66rem;
+  color: #92bfbe;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Columna Derecha: Esencia y Botones de Acción */
+.hud-right {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .essence-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  background: rgba(30, 80, 95, 0.45);
+  gap: 3px;
+  padding: 5px 9px;
+  background: rgba(22, 68, 80, 0.5);
   border: 1px solid rgba(85, 240, 255, 0.35);
   border-radius: 6px;
   color: #6cf7ff;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
-.hud-action-btn {
+.hud-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 11px;
-  background: linear-gradient(135deg, rgba(37, 214, 226, 0.2), rgba(13, 85, 96, 0.4));
+  gap: 5px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(37, 214, 226, 0.22), rgba(13, 85, 96, 0.45));
   border: 1px solid rgba(85, 230, 240, 0.4);
   border-radius: 6px;
   color: #d8fbff;
   font-family: inherit;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
-  pointer-events: auto;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.hud-action-btn:hover {
-  background: linear-gradient(135deg, rgba(62, 235, 247, 0.35), rgba(20, 115, 130, 0.6));
+.hud-btn:hover {
+  background: linear-gradient(135deg, rgba(62, 235, 247, 0.35), rgba(20, 115, 130, 0.65));
   border-color: #5ff9ff;
   transform: translateY(-1px);
 }
 
-/* Boss Health Bar (Nivel 3) */
+.kbd-hint {
+  padding: 1px 4px;
+  border: 1px solid rgba(115, 229, 237, 0.4);
+  border-radius: 3px;
+  font-size: 0.62rem;
+  color: #dcfbff;
+  background: rgba(2, 10, 12, 0.6);
+}
+
+/* ==========================================================================
+   Controles Táctiles para Móvil (Virtual Joystick & Action Buttons)
+   ========================================================================== */
+.touch-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  display: none;
+}
+
+/* Activar controles táctiles en pantallas táctiles o dispositivos móviles */
+@media (pointer: coarse), (max-width: 900px) {
+  .touch-controls {
+    display: block;
+  }
+  .controls {
+    display: none !important;
+  }
+}
+
+/* Joystick Virtual (Esquina inferior izquierda) */
+.joystick-base {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  width: 105px;
+  height: 105px;
+  border-radius: 50%;
+  background: rgba(6, 26, 32, 0.45);
+  border: 2px solid rgba(94, 244, 255, 0.45);
+  box-shadow: 0 0 16px rgba(94, 244, 255, 0.2);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.joystick-thumb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin-left: -22px;
+  margin-top: -22px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #5ef4ff, #1d828c);
+  box-shadow: 0 0 14px rgba(94, 244, 255, 0.7);
+  pointer-events: none;
+}
+
+/* Botones Táctiles de Acción (Esquina inferior derecha) */
+.touch-actions {
+  position: absolute;
+  right: 18px;
+  bottom: 20px;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.touch-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid rgba(94, 244, 255, 0.5);
+  background: rgba(6, 26, 32, 0.78);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 1.35rem;
+  cursor: pointer;
+  touch-action: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  transition: transform 0.08s ease, filter 0.08s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-btn span {
+  font-size: 0.52rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #7ef6ff;
+  margin-top: 1px;
+}
+
+.touch-btn:active {
+  transform: scale(0.92);
+  filter: brightness(1.3);
+}
+
+.touch-btn-shoot {
+  width: 70px;
+  height: 70px;
+  background: linear-gradient(135deg, rgba(22, 120, 133, 0.85), rgba(46, 218, 230, 0.85));
+  border-color: #5ef4ff;
+  box-shadow: 0 0 18px rgba(94, 244, 255, 0.45);
+}
+
+.touch-btn-special {
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(135deg, rgba(133, 40, 160, 0.75), rgba(210, 60, 240, 0.75));
+  border-color: #d86cff;
+  font-size: 1.15rem;
+}
+
+.touch-btn-special span {
+  color: #efa8ff;
+}
+
+.touch-btn-sub {
+  width: 44px;
+  height: 44px;
+  font-size: 1.05rem;
+  background: rgba(14, 45, 54, 0.8);
+}
+
+/* ==========================================================================
+   Barra del Jefe (Titán Ancestral)
+   ========================================================================== */
 .boss-hud {
   position: absolute;
-  top: 86px;
+  top: 76px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(480px, 86vw);
-  background: rgba(14, 7, 20, 0.85);
-  border: 1px solid rgba(220, 90, 255, 0.5);
+  width: min(440px, 86vw);
+  background: rgba(14, 7, 20, 0.88);
+  border: 1px solid rgba(220, 90, 255, 0.55);
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: 6px 12px;
   text-align: center;
   z-index: 10;
-  box-shadow: 0 0 20px rgba(180, 40, 255, 0.3);
-  transition: opacity 0.3s ease;
+  box-shadow: 0 0 20px rgba(180, 40, 255, 0.35);
+  backdrop-filter: blur(8px);
 }
 
 .boss-hud.hidden {
@@ -194,16 +388,16 @@ meter::-webkit-meter-bar {
 }
 
 .boss-name {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.08em;
   color: #e599ff;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .boss-bar-wrap {
   width: 100%;
-  height: 12px;
+  height: 10px;
   background: #251230;
   border-radius: 3px;
   overflow: hidden;
@@ -216,23 +410,27 @@ meter::-webkit-meter-bar {
   transition: width 0.2s ease;
 }
 
-/* Toast flotante de misiones */
+/* ==========================================================================
+   Notificaciones Toast & Banner de Niveles
+   ========================================================================== */
 .mission-toast {
   position: absolute;
-  top: 96px;
+  top: 78px;
   left: 50%;
   transform: translateX(-50%);
   background: linear-gradient(135deg, rgba(8, 30, 36, 0.95), rgba(16, 52, 60, 0.95));
   border: 1px solid #5ef4ff;
   box-shadow: 0 0 20px rgba(94, 244, 255, 0.4);
-  padding: 10px 22px;
+  padding: 8px 18px;
   border-radius: 30px;
   color: #f1feff;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 700;
   z-index: 100;
   pointer-events: none;
   animation: toastFade 2.8s ease forwards;
+  max-width: 90vw;
+  text-align: center;
 }
 
 .mission-toast.hidden {
@@ -246,17 +444,17 @@ meter::-webkit-meter-bar {
   100% { opacity: 0; transform: translate(-50%, -15px); }
 }
 
-/* Banner de Transición de Nivel */
 .level-banner {
   position: absolute;
   inset: 0;
   background: rgba(4, 15, 18, 0.88);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 60;
-  transition: opacity 0.3s ease;
+  padding: 16px;
 }
 
 .level-banner.hidden {
@@ -265,304 +463,86 @@ meter::-webkit-meter-bar {
 
 .level-banner-content {
   text-align: center;
-  background: rgba(7, 24, 29, 0.92);
+  background: rgba(7, 24, 29, 0.95);
   border: 1px solid #5ef4ff;
   border-radius: 12px;
-  padding: 30px 36px;
+  padding: 24px 28px;
   box-shadow: 0 0 35px rgba(94, 244, 255, 0.3);
-  max-width: min(500px, 90vw);
+  max-width: min(460px, 92vw);
 }
 
 .banner-badge {
   display: inline-block;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 900;
   letter-spacing: 0.12em;
   color: #5ef4ff;
   background: rgba(94, 244, 255, 0.15);
-  padding: 3px 10px;
+  padding: 3px 8px;
   border-radius: 4px;
   margin-bottom: 8px;
 }
 
 .level-banner-content h2 {
-  margin: 6px 0;
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   color: #ffffff;
   font-family: Georgia, serif;
+  margin-bottom: 6px;
 }
 
 .level-banner-content p {
   color: #9ac2c1;
-  font-size: 0.88rem;
-  margin-bottom: 22px;
+  font-size: 0.82rem;
+  margin-bottom: 18px;
 }
 
 .btn-next-level {
-  padding: 12px 24px;
+  padding: 10px 20px;
   background: linear-gradient(135deg, #1fa5b1, #30e9f7);
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #041215;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.2s ease, filter 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
 .btn-next-level:hover {
-  transform: scale(1.04);
-  filter: brightness(1.15);
+  transform: scale(1.03);
 }
 
-/* Controles Táctiles para Móvil */
-.touch-controls {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 15;
-  display: none;
-}
-
-/* En dispositivos táctiles o pantallas móviles, activar touch-controls */
-@media (pointer: coarse), (max-width: 900px) {
-  .touch-controls {
-    display: block;
-  }
-  .controls {
-    display: none !important;
-  }
-}
-
-/* Joystick Virtual (Izquierda) */
-.joystick-base {
-  position: absolute;
-  left: 30px;
-  bottom: 35px;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: rgba(6, 26, 32, 0.45);
-  border: 2px solid rgba(94, 244, 255, 0.4);
-  box-shadow: 0 0 15px rgba(94, 244, 255, 0.15);
-  pointer-events: auto;
-  touch-action: none;
-}
-
-.joystick-thumb {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 50px;
-  height: 50px;
-  margin-left: -25px;
-  margin-top: -25px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #5ef4ff, #1d828c);
-  box-shadow: 0 0 14px rgba(94, 244, 255, 0.6);
-  pointer-events: none;
-  transition: transform 0.05s ease;
-}
-
-/* Botones de Acción Táctiles (Derecha) */
-.touch-actions {
-  position: absolute;
-  right: 24px;
-  bottom: 30px;
-  display: flex;
-  align-items: flex-end;
-  gap: 14px;
-  pointer-events: auto;
-}
-
-.touch-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 2px solid rgba(94, 244, 255, 0.5);
-  background: rgba(6, 26, 32, 0.75);
-  color: #ffffff;
-  font-family: inherit;
-  font-size: 1.4rem;
-  cursor: pointer;
-  touch-action: none;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
-  transition: transform 0.1s ease, filter 0.1s ease;
-}
-
-.touch-btn span {
-  font-size: 0.55rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #7ef6ff;
-  margin-top: 2px;
-}
-
-.touch-btn:active {
-  transform: scale(0.92);
-  filter: brightness(1.3);
-}
-
-.touch-btn-shoot {
-  width: 76px;
-  height: 76px;
-  background: linear-gradient(135deg, rgba(22, 120, 133, 0.8), rgba(46, 218, 230, 0.8));
-  border-color: #5ef4ff;
-  box-shadow: 0 0 20px rgba(94, 244, 255, 0.4);
-}
-
-.touch-btn-special {
-  width: 58px;
-  height: 58px;
-  background: linear-gradient(135deg, rgba(133, 40, 160, 0.7), rgba(210, 60, 240, 0.7));
-  border-color: #d86cff;
-  font-size: 1.15rem;
-}
-
-.touch-btn-special span {
-  color: #efa8ff;
-}
-
-.touch-btn-sub {
-  width: 50px;
-  height: 50px;
-  font-size: 1.1rem;
-  background: rgba(14, 45, 54, 0.75);
-}
-
-/* Modal de Mejoras de Avatar */
-.upgrade-box {
-  width: min(580px, 94vw);
-}
-
-.upgrade-wallet {
-  font-size: 0.85rem;
-  color: #a4cece;
-  background: rgba(13, 40, 48, 0.6);
-  padding: 8px 14px;
-  border-radius: 6px;
-  border: 1px solid rgba(94, 244, 255, 0.2);
-  margin-bottom: 14px;
-}
-
-.upgrade-wallet strong {
-  color: #6cf7ff;
-  font-size: 1rem;
-}
-
-.upgrade-grid {
-  display: grid;
-  gap: 12px;
-}
-
-.upgrade-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: rgba(10, 29, 34, 0.85);
-  border: 1px solid rgba(94, 244, 255, 0.25);
-  border-radius: 8px;
-  padding: 12px 16px;
-}
-
-.upgrade-card-icon {
-  font-size: 1.8rem;
-}
-
-.upgrade-card-info {
-  flex: 1;
-}
-
-.upgrade-card-info h4 {
-  margin: 0 0 3px;
-  font-size: 0.95rem;
-  color: #ecfeff;
-}
-
-.upgrade-card-info p {
-  margin: 0 0 6px;
-  font-size: 0.75rem;
-  color: #8fb8b7;
-}
-
-.upgrade-level-dots {
-  display: flex;
-  gap: 5px;
-}
-
-.upgrade-level-dots .dot {
-  width: 14px;
-  height: 5px;
-  background: #1b363a;
-  border-radius: 2px;
-}
-
-.upgrade-level-dots .dot.active {
-  background: #5ef4ff;
-  box-shadow: 0 0 6px rgba(94, 244, 255, 0.6);
-}
-
-.btn-buy-upgrade {
-  padding: 8px 14px;
-  background: linear-gradient(135deg, #1a8f9a, #2dd0dd);
-  border: none;
-  border-radius: 6px;
-  color: #031316;
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.btn-buy-upgrade:hover:not(:disabled) {
-  filter: brightness(1.15);
-  transform: translateY(-1px);
-}
-
-.btn-buy-upgrade:disabled {
-  background: #25393d;
-  color: #698387;
-  cursor: not-allowed;
-}
-
-.cost-tag {
-  display: inline-block;
-  margin-left: 4px;
-  font-size: 0.72rem;
-  color: #022025;
-}
-
-/* Modales Compartidos */
+/* ==========================================================================
+   Modales Responsivos (Mejoras, Récords, Inspector)
+   ========================================================================== */
 .modal-overlay {
   position: absolute;
   inset: 0;
   background: rgba(4, 14, 17, 0.82);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 50;
-  transition: opacity 0.25s ease;
+  padding: 16px;
 }
 
 .modal-overlay.hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
+  display: none;
 }
 
 .modal-box {
-  width: min(560px, 92vw);
+  width: min(520px, 94vw);
+  max-height: 85dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: rgba(7, 22, 26, 0.95);
   border: 1px solid rgba(94, 244, 255, 0.4);
   border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(62, 235, 247, 0.2);
-  padding: 22px 24px;
+  padding: 18px 20px;
 }
 
 .modal-header {
@@ -574,8 +554,8 @@ meter::-webkit-meter-bar {
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.12rem;
-  letter-spacing: 0.05em;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
   color: #e5faff;
   font-family: Georgia, serif;
 }
@@ -586,27 +566,125 @@ meter::-webkit-meter-bar {
   color: #8bb5b3;
   font-size: 1.6rem;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 4px 8px;
+  line-height: 1;
 }
 
 .modal-close:hover {
   color: #ffffff;
 }
 
+/* Taller de Mejoras */
+.upgrade-wallet {
+  font-size: 0.82rem;
+  color: #a4cece;
+  background: rgba(13, 40, 48, 0.6);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(94, 244, 255, 0.2);
+  margin-bottom: 12px;
+}
+
+.upgrade-wallet strong {
+  color: #6cf7ff;
+}
+
+.upgrade-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.upgrade-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(10, 29, 34, 0.85);
+  border: 1px solid rgba(94, 244, 255, 0.22);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.upgrade-card-icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.upgrade-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.upgrade-card-info h4 {
+  margin: 0 0 2px;
+  font-size: 0.88rem;
+  color: #ecfeff;
+}
+
+.upgrade-card-info p {
+  margin: 0 0 5px;
+  font-size: 0.72rem;
+  color: #8fb8b7;
+  line-height: 1.25;
+}
+
+.upgrade-level-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.upgrade-level-dots .dot {
+  width: 12px;
+  height: 4px;
+  background: #1b363a;
+  border-radius: 2px;
+}
+
+.upgrade-level-dots .dot.active {
+  background: #5ef4ff;
+  box-shadow: 0 0 6px rgba(94, 244, 255, 0.6);
+}
+
+.btn-buy-upgrade {
+  padding: 7px 12px;
+  background: linear-gradient(135deg, #1a8f9a, #2dd0dd);
+  border: none;
+  border-radius: 6px;
+  color: #031316;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-buy-upgrade:disabled {
+  background: #25393d;
+  color: #698387;
+  cursor: not-allowed;
+}
+
+.cost-tag {
+  display: inline-block;
+  margin-left: 3px;
+  font-size: 0.7rem;
+}
+
+/* Tabla de Récords */
 .db-status-tag {
   display: inline-block;
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 700;
   color: #5ef4ff;
   background: rgba(94, 244, 255, 0.12);
   border: 1px solid rgba(94, 244, 255, 0.25);
   border-radius: 4px;
-  padding: 3px 8px;
-  margin-bottom: 14px;
+  padding: 2px 7px;
+  margin-bottom: 10px;
 }
 
 .leaderboard-table-wrap {
-  max-height: 250px;
+  max-height: 220px;
   overflow-y: auto;
   border: 1px solid rgba(94, 244, 255, 0.18);
   border-radius: 6px;
@@ -617,81 +695,81 @@ meter::-webkit-meter-bar {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
 }
 
 .leaderboard-table th {
-  background: rgba(14, 38, 44, 0.9);
-  padding: 8px 12px;
+  background: rgba(14, 38, 44, 0.95);
+  padding: 7px 10px;
   color: #6aeaf2;
   font-weight: 700;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   position: sticky;
   top: 0;
 }
 
 .leaderboard-table td {
-  padding: 8px 12px;
+  padding: 7px 10px;
   border-top: 1px solid rgba(85, 230, 240, 0.1);
   color: #d1eceb;
 }
 
 .score-submit-box {
-  margin-top: 14px;
-  padding-top: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid rgba(94, 244, 255, 0.2);
 }
 
 .score-submit-box h4 {
-  margin: 0 0 6px;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   color: #6cf5ff;
+  margin-bottom: 4px;
 }
 
 .score-summary {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #b1d4d3;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .score-form {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .score-form input {
   flex: 1;
-  padding: 9px 12px;
+  padding: 8px 10px;
   background: rgba(3, 14, 17, 0.8);
   border: 1px solid rgba(94, 244, 255, 0.4);
   border-radius: 6px;
   color: #f1fdff;
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   outline: none;
 }
 
 .submit-score-btn {
-  padding: 9px 16px;
+  padding: 8px 14px;
   background: linear-gradient(135deg, #1fa5b1, #2ce2f0);
   border: none;
   border-radius: 6px;
   color: #041215;
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
 }
 
-/* Reference Sheet Inspector Panel */
+/* Panel de Inspección 3D */
 .inspect-panel {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 16px;
   pointer-events: none;
   z-index: 20;
 }
@@ -707,32 +785,29 @@ meter::-webkit-meter-bar {
   background: rgba(6, 19, 23, 0.88);
   border: 1px solid rgba(85, 232, 242, 0.35);
   border-radius: 8px;
-  padding: 10px 24px;
+  padding: 8px 18px;
 }
 
 .inspect-badge {
   display: inline-block;
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 900;
-  letter-spacing: 0.14em;
   color: #5ef4ff;
   background: rgba(94, 244, 255, 0.12);
-  padding: 2px 7px;
+  padding: 2px 6px;
   border-radius: 4px;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .inspect-header h2 {
-  margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: #f1fdff;
   text-transform: uppercase;
 }
 
 .inspect-header p {
-  margin: 3px 0 0;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: #8fb8b7;
 }
 
@@ -740,21 +815,23 @@ meter::-webkit-meter-bar {
   pointer-events: auto;
   align-self: center;
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
   background: rgba(6, 19, 23, 0.85);
   border: 1px solid rgba(85, 232, 242, 0.3);
   padding: 5px 8px;
-  border-radius: 30px;
+  border-radius: 20px;
 }
 
 .tab-btn {
-  padding: 6px 14px;
+  padding: 5px 11px;
   border: 1px solid transparent;
-  border-radius: 20px;
+  border-radius: 16px;
   background: transparent;
   color: #a4c9c7;
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -773,37 +850,37 @@ meter::-webkit-meter-bar {
   background: rgba(6, 19, 23, 0.85);
   border: 1px solid rgba(85, 232, 242, 0.25);
   border-radius: 8px;
-  padding: 8px 16px;
+  padding: 7px 14px;
 }
 
 .exit-btn {
-  padding: 5px 12px;
+  padding: 5px 10px;
   background: rgba(235, 87, 87, 0.2);
   border: 1px solid rgba(235, 87, 87, 0.4);
   border-radius: 5px;
   color: #ffd8d8;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   cursor: pointer;
 }
 
 .inspect-hint {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: #85acab;
 }
 
-/* Controls Bar Desktop */
+/* Barra inferior (Desktop) */
 .controls {
   position: absolute;
   left: 50%;
-  bottom: 16px;
+  bottom: 14px;
   display: flex;
-  gap: 14px;
-  padding: 8px 14px;
+  gap: 12px;
+  padding: 7px 12px;
   border: 1px solid rgba(181, 237, 239, 0.2);
   border-radius: 6px;
   background: rgba(5, 17, 20, 0.78);
   color: #a9c2c1;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   transform: translateX(-50%);
   backdrop-filter: blur(10px);
   pointer-events: none;
@@ -812,7 +889,7 @@ meter::-webkit-meter-bar {
 }
 
 kbd {
-  padding: 2px 5px;
+  padding: 2px 4px;
   border: 1px solid rgba(115, 229, 237, 0.4);
   border-radius: 3px;
   color: #dcfbff;
@@ -825,8 +902,8 @@ kbd {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border: 1px solid rgba(211, 250, 255, 0.85);
   border-radius: 50%;
   box-shadow: 0 0 10px #5ce8f2;
@@ -839,10 +916,10 @@ kbd {
   position: absolute;
   left: 50%;
   top: 50%;
-  max-width: min(600px, 88vw);
+  max-width: min(560px, 88vw);
   color: #f4fdff;
   font-family: Georgia, serif;
-  font-size: clamp(1.6rem, 5vw, 3rem);
+  font-size: clamp(1.5rem, 5vw, 2.8rem);
   text-align: center;
   text-shadow: 0 3px 20px #000;
   transform: translate(-50%, -50%);
@@ -852,37 +929,137 @@ kbd {
 
 .message small {
   display: block;
-  margin-top: 10px;
+  margin-top: 8px;
   color: #b9d5d4;
   font-family: Inter, sans-serif;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
 }
 
-/* Responsividad para Móviles (Landscape y Portrait) */
-@media (max-width: 900px) {
+/* ==========================================================================
+   Media Queries: Optimización Total para Móviles
+   ========================================================================== */
+@media (max-width: 820px) {
   .hud {
-    inset: 8px 10px auto;
-    grid-template-columns: 1fr auto;
-    gap: 8px 12px;
-    padding: 8px 10px;
+    top: 6px;
+    left: 8px;
+    right: 8px;
+    padding: 6px 10px;
+    gap: 8px;
   }
-  .identity { grid-column: 1; }
-  .identity span { font-size: 0.62rem; }
-  .hud-buttons { grid-column: 2; gap: 6px; }
-  .hud-action-btn span, .hud-action-btn kbd { display: none; }
-  .hud-action-btn { padding: 6px; }
-  .essence-badge { font-size: 0.72rem; padding: 4px 7px; }
-  .mission { grid-column: 1 / -1; text-align: left; }
-  .mission strong { font-size: 0.78rem; }
-  .sub-objective { font-size: 0.68rem; }
-  .meters { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .meters label { grid-template-columns: 35px 1fr; font-size: 0.58rem; }
-  .joystick-base { left: 18px; bottom: 22px; width: 105px; height: 105px; }
-  .joystick-thumb { width: 42px; height: 42px; margin-left: -21px; margin-top: -21px; }
-  .touch-actions { right: 14px; bottom: 18px; gap: 10px; }
-  .touch-btn-shoot { width: 68px; height: 68px; }
-  .touch-btn-special { width: 50px; height: 50px; }
-  .touch-btn-sub { width: 44px; height: 44px; }
-  .inspect-tabs { flex-wrap: wrap; justify-content: center; }
-  .inspect-footer { flex-direction: column; gap: 6px; text-align: center; }
+
+  .game-title {
+    display: none;
+  }
+
+  .meters {
+    width: 65px;
+  }
+
+  .btn-text, .kbd-hint {
+    display: none;
+  }
+
+  .hud-btn {
+    padding: 6px;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    justify-content: center;
+  }
+
+  .essence-badge {
+    padding: 4px 6px;
+    font-size: 0.68rem;
+  }
+
+  .mission-pill strong {
+    font-size: 0.72rem;
+  }
+
+  .sub-objective {
+    display: none; /* Ocultar secundaria en móviles pequeños para ganar espacio */
+  }
+
+  .joystick-base {
+    left: 16px;
+    bottom: 18px;
+    width: 90px;
+    height: 90px;
+  }
+
+  .joystick-thumb {
+    width: 38px;
+    height: 38px;
+    margin-left: -19px;
+    margin-top: -19px;
+  }
+
+  .touch-actions {
+    right: 14px;
+    bottom: 16px;
+    gap: 10px;
+  }
+
+  .touch-btn-shoot {
+    width: 64px;
+    height: 64px;
+  }
+
+  .touch-btn-special {
+    width: 48px;
+    height: 48px;
+  }
+
+  .touch-btn-sub {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Pantallas en Orientación Horizontal (Landscape Móvil) */
+@media (max-height: 480px) {
+  .hud {
+    top: 4px;
+    left: 6px;
+    right: 6px;
+    padding: 4px 8px;
+  }
+
+  .joystick-base {
+    bottom: 12px;
+    left: 14px;
+    width: 82px;
+    height: 82px;
+  }
+
+  .touch-actions {
+    bottom: 10px;
+    right: 12px;
+    gap: 8px;
+  }
+
+  .touch-btn-shoot {
+    width: 58px;
+    height: 58px;
+  }
+
+  .touch-btn-special {
+    width: 44px;
+    height: 44px;
+  }
+
+  .touch-btn-sub {
+    width: 38px;
+    height: 38px;
+  }
+
+  .boss-hud {
+    top: 50px;
+    padding: 4px 8px;
+  }
+
+  .modal-box {
+    max-height: 92dvh;
+    padding: 12px 16px;
+  }
 }
