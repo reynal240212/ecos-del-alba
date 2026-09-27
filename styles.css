@@ -38,6 +38,13 @@ canvas {
   touch-action: none;
 }
 
+.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
 /* ==========================================================================
    HUD Superior Adaptable (Mobile-First & Desktop Friendly)
    ========================================================================== */
@@ -537,7 +544,9 @@ meter::-webkit-meter-bar {
 }
 
 .modal-overlay.hidden {
-  display: none;
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .modal-box {
@@ -726,6 +735,10 @@ meter::-webkit-meter-bar {
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid rgba(94, 244, 255, 0.2);
+}
+
+.score-submit-box.hidden {
+  display: none !important;
 }
 
 .score-submit-box h4 {
@@ -1301,6 +1314,13 @@ kbd {
   padding: 20px;
 }
 
+.menu-overlay.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
 .main-menu-card {
   background: linear-gradient(145deg, rgba(16, 36, 42, 0.95), rgba(9, 20, 24, 0.98));
   border: 1px solid rgba(94, 244, 255, 0.4);
@@ -1763,6 +1783,12 @@ kbd {
   align-items: center;
   gap: 14px;
   animation: promptBounce 1.4s infinite ease-in-out;
+}
+
+.chest-prompt.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 @keyframes promptBounce {

@@ -1964,7 +1964,7 @@ profileForm.addEventListener("submit", (e) => {
 // ==========================================================================
 // Main Menu Start Game Button
 // ==========================================================================
-btnStartGame.addEventListener("click", () => {
+function startGame() {
   initAudio();
   mainMenuOverlay.classList.add("hidden");
   isGamePaused = false;
@@ -1974,6 +1974,16 @@ btnStartGame.addEventListener("click", () => {
     updateMusicUI();
   }
   showToast("⚔️ ¡Aventura Iniciada!");
+}
+
+btnStartGame.addEventListener("click", (e) => {
+  e.preventDefault();
+  startGame();
+});
+
+btnStartGame.addEventListener("touchend", (e) => {
+  e.preventDefault();
+  startGame();
 });
 
 // Chest Open Event Listener
@@ -2105,6 +2115,13 @@ btnUpgradeArmor.addEventListener("click", () => buyUpgrade("armor"));
 // Mobile Touch Virtual Joystick & Tap to Aim / Look
 function handleTouchStart(e) {
   initAudio();
+  const target = e.target;
+  if (target && (target.closest("button") || target.closest("input") || target.closest(".menu-overlay") || target.closest(".modal-overlay") || target.closest(".hud"))) {
+    return;
+  }
+  if (isGamePaused || !mainMenuOverlay.classList.contains("hidden") || inspectMode || isLeaderboardOpen || isUpgradeOpen || isWardrobeOpen || isProfileOpen || isSettingsOpen) {
+    return;
+  }
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
     if (t.clientX < window.innerWidth * 0.44) {
