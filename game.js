@@ -118,6 +118,9 @@ const btnTouchCam = document.querySelector("#btn-touch-cam");
 const btnTouchDash = document.querySelector("#btn-touch-dash");
 const btnTouchShoot = document.querySelector("#btn-touch-shoot");
 const btnTouchSpecial = document.querySelector("#btn-touch-special");
+const btnFullscreenToggle = document.querySelector("#btn-fullscreen-toggle");
+const btnMenuFullscreen = document.querySelector("#btn-menu-fullscreen");
+const btnTouchFullscreen = document.querySelector("#btn-touch-fullscreen");
 
 // Audio & Game Settings State
 const audioSettings = {
@@ -2223,13 +2226,75 @@ function resizeGame() {
   const width = window.innerWidth;
   const height = window.innerHeight;
   renderer.setSize(width, height, false);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   camera.aspect = width / height;
-  camera.fov = cameraMode === "fps" ? 65 : (camera.aspect < 1 ? 68 : 50);
+  // Adaptive FOV for landscape vs portrait
+  if (cameraMode === "fps") {
+    camera.fov = camera.aspect > 1.2 ? 65 : 75;
+  } else {
+    camera.fov = camera.aspect < 1 ? 68 : 50;
+  }
   camera.updateProjectionMatrix();
 }
 
-window.addEventListener("resize", resizeGame);
-window.addEventListener("orientationchange", () => setTimeout(resizeGame, 100));
+async function toggleFullscreenLandscape() {
+  initAudio();
+  try {
+    const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (!isFull) {
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        await el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        await el.webkitRequestFullscreen();
+      }
+      if (screen.orientation && screen.orientation.lock) {
+        await screen.orientation.lock("landscape").catch(() => {});
+      }
+      showToast("⛶ Pantalla Completa & Modo Horizontal Activado");
+    } else {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        await document.webkitExitFullscreen();
+      }
+      if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
+      showToast("Pantalla Completa Desactivada");
+    }
+  } catch (err) {
+    showToast("Gira tu celular horizontalmente para jugar");
+  }
+  setTimeout(resizeGame, 80);
+  setTimeout(resizeGame, 250);
+}
+
+if (btnFullscreenToggle) btnFullscreenToggle.addEventListener("click", toggleFullscreenLandscape);
+if (btnMenuFullscreen) btnMenuFullscreen.addEventListener("click", toggleFullscreenLandscape);
+if (btnTouchFullscreen) btnTouchFullscreen.addEventListener("click", toggleFullscreenLandscape);
+
+window.addEventListener("resize", () => {
+  resizeGame();
+  setTimeout(resizeGame, 80);
+  setTimeout(resizeGame, 250);
+});
+window.addEventListener("orientationchange", () => {
+  setTimeout(resizeGame, 50);
+  setTimeout(resizeGame, 150);
+  setTimeout(resizeGame, 350);
+});
+if (screen.orientation) {
+  screen.orientation.addEventListener("change", () => {
+    setTimeout(resizeGame, 50);
+    setTimeout(resizeGame, 150);
+    setTimeout(resizeGame, 350);
+  });
+}
+document.addEventListener("fullscreenchange", () => {
+  setTimeout(resizeGame, 80);
+  setTimeout(resizeGame, 250);
+});
 
 canvas.addEventListener("click", () => {
   if (!isGamePaused && cameraMode === "fps" && !inspectMode && !isLeaderboardOpen && !isUpgradeOpen && !isWardrobeOpen && !isSettingsOpen) {
@@ -2255,6 +2320,7 @@ window.addEventListener("keydown", (e) => {
   if (k === "q") triggerDroneShockwave();
   if (k === "c") toggleCameraMode();
   if (k === "m") toggleMusic();
+  if (k === "f") toggleFullscreenLandscape();
   if (k === "b") openWardrobe();
   if (k === "p") {
     if (isSettingsOpen) closeSettings();

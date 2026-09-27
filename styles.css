@@ -264,9 +264,9 @@ meter::-webkit-meter-bar {
 }
 
 /* Activar controles táctiles en pantallas táctiles o dispositivos móviles */
-@media (pointer: coarse), (max-width: 900px) {
+@media (pointer: coarse), (max-width: 1024px), (max-height: 580px) and (orientation: landscape) {
   .touch-controls {
-    display: block;
+    display: block !important;
   }
   .controls {
     display: none !important;
@@ -1023,51 +1023,196 @@ kbd {
   }
 }
 
-/* Pantallas en Orientación Horizontal (Landscape Móvil) */
-@media (max-height: 480px) {
-  .hud {
-    top: 4px;
-    left: 6px;
-    right: 6px;
-    padding: 4px 8px;
+/* ==========================================================================
+   Optimización Integral para Pantallas en Orientación Horizontal (Landscape Móvil)
+   ========================================================================== */
+@media (orientation: landscape) and (max-height: 580px), (max-height: 480px) {
+  .touch-controls {
+    display: block !important;
+  }
+  .controls {
+    display: none !important;
   }
 
+  /* HUD Compacto en Horizontal */
+  .hud {
+    top: max(4px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    padding: 3px 8px;
+    gap: 6px;
+  }
+
+  .game-title, .sub-objective, .btn-text, .kbd-hint, .meter-label {
+    display: none !important;
+  }
+
+  .meters {
+    width: 48px;
+    gap: 2px;
+  }
+
+  meter {
+    height: 6px;
+  }
+
+  .profile-hud-badge {
+    padding: 2px 6px;
+    gap: 4px;
+  }
+
+  .profile-name {
+    display: none !important;
+  }
+
+  .xp-bar-mini {
+    width: 32px;
+    height: 4px;
+  }
+
+  .mission-pill {
+    padding: 2px 8px;
+  }
+
+  .mission-pill strong {
+    font-size: 0.68rem;
+  }
+
+  .essence-badge {
+    padding: 3px 6px;
+    font-size: 0.65rem;
+  }
+
+  .hud-btn {
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+    font-size: 0.85rem;
+  }
+
+  /* Controles Táctiles en Horizontal */
   .joystick-base {
-    bottom: 12px;
-    left: 14px;
-    width: 82px;
-    height: 82px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: max(16px, env(safe-area-inset-left));
+    width: 78px;
+    height: 78px;
+  }
+
+  .joystick-thumb {
+    width: 34px;
+    height: 34px;
+    margin-left: -17px;
+    margin-top: -17px;
   }
 
   .touch-actions {
-    bottom: 10px;
-    right: 12px;
-    gap: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    right: max(12px, env(safe-area-inset-right));
+    gap: 6px;
+  }
+
+  .touch-btn span {
+    display: none !important;
   }
 
   .touch-btn-shoot {
-    width: 58px;
-    height: 58px;
+    width: 54px;
+    height: 54px;
+    font-size: 1.35rem;
   }
 
   .touch-btn-special {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
+    font-size: 1.05rem;
   }
 
   .touch-btn-sub {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
+    font-size: 0.95rem;
+  }
+
+  /* Menú Principal en Horizontal (Disposición en 2 Columnas) */
+  .menu-overlay {
+    padding: 8px max(14px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left));
+    overflow-y: auto;
+  }
+
+  .main-menu-card {
+    max-width: 90vw;
+    max-height: 94dvh;
+    padding: 12px 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 10px 14px;
+    align-items: center;
+    text-align: left;
+  }
+
+  .menu-brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .menu-brand .brand-title {
+    font-size: 1.55rem;
+    margin: 2px 0;
+  }
+
+  .menu-brand .brand-desc {
+    font-size: 0.72rem;
+    margin-bottom: 6px;
+  }
+
+  .menu-profile-bar {
+    grid-column: 1;
+    grid-row: 2;
+    margin-bottom: 0;
+    padding: 8px 10px;
+  }
+
+  .menu-action-buttons {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    gap: 8px;
+  }
+
+  .menu-action-btn {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  .menu-footer-hint {
+    display: none;
+  }
+
+  /* Modales en Horizontal */
+  .modal-box {
+    max-height: 94dvh;
+    padding: 10px 14px;
+  }
+
+  .wardrobe-grid {
+    max-height: 48vh;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+  }
+
+  .wardrobe-card {
+    padding: 10px;
   }
 
   .boss-hud {
-    top: 50px;
-    padding: 4px 8px;
+    top: 42px;
+    padding: 2px 8px;
   }
 
-  .modal-box {
-    max-height: 92dvh;
-    padding: 12px 16px;
+  .chest-prompt {
+    bottom: 12px;
+    padding: 6px 12px;
+    gap: 8px;
   }
 }
 
