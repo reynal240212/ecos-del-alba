@@ -1,5 +1,7 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js";
 import { createProtagonist, createProtagonistMaterials, createFPSViewModel } from "./character.js";
+import { musicEngine } from "./music.js";
+import { createSentinelDrone, createCorruptedStalker, createTitanBossModel } from "./enemies.js";
 
 // DOM Elements
 const canvas = document.querySelector("#game");
@@ -14,6 +16,9 @@ const modalEssenceCount = document.querySelector("#modal-essence-count");
 const missionToast = document.querySelector("#mission-toast");
 
 // Action Buttons & Modals
+const btnMusicToggle = document.querySelector("#btn-music-toggle");
+const musicIcon = document.querySelector("#music-icon");
+const musicText = document.querySelector("#music-text");
 const btnCamToggle = document.querySelector("#btn-cam-toggle");
 const camToggleText = document.querySelector("#cam-toggle-text");
 const btnInspect = document.querySelector("#btn-inspect");
@@ -55,7 +60,7 @@ const btnTouchDash = document.querySelector("#btn-touch-dash");
 const btnTouchShoot = document.querySelector("#btn-touch-shoot");
 const btnTouchSpecial = document.querySelector("#btn-touch-special");
 
-// Three.js Core
+// Three.js Core Setup
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
@@ -67,16 +72,16 @@ renderer.toneMappingExposure = 1.15;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x89b6b5);
 scene.fog = new THREE.FogExp2(0x8fb5ac, 0.012);
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 240);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 260);
 scene.add(camera);
 
 const keys = new Set();
 const mouse = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
 const aimPoint = new THREE.Vector3(0, 0, -8);
-const WORLD = { width: 84, depth: 64 };
+const WORLD = { width: 88, depth: 68 };
 
-// Audio Context for Synthesized Sound Effects
+// Audio Context for Sound Effects
 let audioCtx = null;
 function initAudio() {
   if (!audioCtx) {
@@ -99,20 +104,28 @@ function playSound(type) {
 
     if (type === "shoot") {
       osc.type = "sine";
-      osc.frequency.setValueAtTime(900, now);
-      osc.frequency.exponentialRampToValueAtTime(220, now + 0.18);
+      osc.frequency.setValueAtTime(920, now);
+      osc.frequency.exponentialRampToValueAtTime(240, now + 0.16);
       gain.gain.setValueAtTime(0.28, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
       osc.start(now);
-      osc.stop(now + 0.18);
+      osc.stop(now + 0.16);
+    } else if (type === "enemyShoot") {
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(480, now);
+      osc.frequency.exponentialRampToValueAtTime(140, now + 0.22);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+      osc.start(now);
+      osc.stop(now + 0.22);
     } else if (type === "shockwave") {
       osc.type = "triangle";
       osc.frequency.setValueAtTime(280, now);
-      osc.frequency.exponentialRampToValueAtTime(50, now + 0.4);
-      gain.gain.setValueAtTime(0.45, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+      osc.frequency.exponentialRampToValueAtTime(45, now + 0.45);
+      gain.gain.setValueAtTime(0.48, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
       osc.start(now);
-      osc.stop(now + 0.4);
+      osc.stop(now + 0.45);
     } else if (type === "drone") {
       osc.type = "triangle";
       osc.frequency.setValueAtTime(1400, now);
@@ -156,17 +169,17 @@ function playSound(type) {
         o.stop(now + i * 0.07 + 0.5);
       });
     } else if (type === "victory") {
-      [261.63, 329.63, 392.0, 523.25].forEach((freq) => {
+      [261.63, 329.63, 392.0, 523.25, 659.25].forEach((freq, i) => {
         const o = audioCtx.createOscillator();
         const g = audioCtx.createGain();
         o.connect(g);
         g.connect(audioCtx.destination);
         o.type = "triangle";
-        o.frequency.setValueAtTime(freq, now);
-        g.gain.setValueAtTime(0.25, now);
-        g.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
-        o.start(now);
-        o.stop(now + 1.8);
+        o.frequency.setValueAtTime(freq, now + i * 0.12);
+        g.gain.setValueAtTime(0.24, now + i * 0.12);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 1.2);
+        o.start(now + i * 0.12);
+        o.stop(now + i * 0.12 + 1.2);
       });
     }
   } catch (e) {}
@@ -178,8 +191,112 @@ function vibrate(ms = 25) {
   }
 }
 
+// ==========================================================================
+// Robust 3D Collision System
+// ==========================================================================
+let worldColliders = [];
+
+function addCircleCollider(x, z, radius, name = "prop") {
+  worldColliders.push({ type: "circle", x, z, radius, name });
+}
+
+function addBoxCollider(minX, maxX, minZ, maxZ, name = "box") {
+  worldColliders.push({ type: "box", minX, maxX, minZ, maxZ, name });
+}
+
+function resolveWorldCollision(position, radius = 0.65) {
+  for (let i = 0; i < worldColliders.length; i++) {
+    const col = worldColliders[i];
+    if (col.type === "circle") {
+      const dx = position.x - col.x;
+      const dz = position.z - col.z;
+      const minDist = radius + col.radius;
+      const distSq = dx * dx + dz * dz;
+      if (distSq < minDist * minDist && distSq > 0.00001) {
+        const dist = Math.sqrt(distSq);
+        const overlap = minDist - dist;
+        position.x += (dx / dist) * overlap;
+        position.z += (dz / dist) * overlap;
+      }
+    } else if (col.type === "box") {
+      const nearestX = Math.max(col.minX, Math.min(position.x, col.maxX));
+      const nearestZ = Math.max(col.minZ, Math.min(position.z, col.maxZ));
+      const dx = position.x - nearestX;
+      const dz = position.z - nearestZ;
+      const distSq = dx * dx + dz * dz;
+      if (distSq < radius * radius) {
+        // Position is inside or penetrating bounding box
+        if (position.x >= col.minX && position.x <= col.maxX && position.z >= col.minZ && position.z <= col.maxZ) {
+          const dLeft = position.x - col.minX;
+          const dRight = col.maxX - position.x;
+          const dTop = position.z - col.minZ;
+          const dBottom = col.maxZ - position.z;
+          const minD = Math.min(dLeft, dRight, dTop, dBottom);
+          if (minD === dLeft) position.x = col.minX - radius;
+          else if (minD === dRight) position.x = col.maxX + radius;
+          else if (minD === dTop) position.z = col.minZ - radius;
+          else position.z = col.maxZ + radius;
+        } else {
+          const dist = Math.sqrt(distSq);
+          if (dist > 0.00001) {
+            const overlap = radius - dist;
+            position.x += (dx / dist) * overlap;
+            position.z += (dz / dist) * overlap;
+          }
+        }
+      }
+    }
+  }
+
+  // Clamping to map boundaries
+  position.x = THREE.MathUtils.clamp(position.x, -41, 41);
+  position.z = THREE.MathUtils.clamp(position.z, -31, 31);
+}
+
+function checkProjectileCollision(position, radius = 0.25) {
+  for (let i = 0; i < worldColliders.length; i++) {
+    const col = worldColliders[i];
+    if (col.type === "circle") {
+      const dx = position.x - col.x;
+      const dz = position.z - col.z;
+      const minDist = radius + col.radius;
+      if (dx * dx + dz * dz < minDist * minDist) return true;
+    } else if (col.type === "box") {
+      if (
+        position.x >= col.minX - radius &&
+        position.x <= col.maxX + radius &&
+        position.z >= col.minZ - radius &&
+        position.z <= col.maxZ + radius
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// ==========================================================================
+// Procedural 3D Terrain Height
+// ==========================================================================
+function getTerrainHeight(x, z) {
+  // Central ruins plaza is flattened for optimal combat experience
+  const dCenter = Math.hypot(x, z);
+  const flatFactor = Math.min(1, Math.max(0, (dCenter - 6) / 16));
+
+  const hill1 = Math.sin(x * 0.09) * Math.cos(z * 0.08) * 1.9;
+  const hill2 = Math.sin(x * 0.2 + 0.8) * Math.cos(z * 0.17 - 0.4) * 0.95;
+  const ridge = Math.cos((x - z) * 0.07) * 0.65;
+
+  // Natural edge lift forming a majestic valley basin
+  const edgeX = Math.max(0, Math.abs(x) - 32);
+  const edgeZ = Math.max(0, Math.abs(z) - 23);
+  const edgeLift = (edgeX * edgeX + edgeZ * edgeZ) * 0.012;
+
+  return (hill1 + hill2 + ridge) * flatFactor + edgeLift;
+}
+
 // Camera Modes & FPS Viewmodel
-let cameraMode = "fps"; // Default to First Person view as requested!
+let cameraMode = "fps"; // Default to First Person view
 let cameraYaw = 0;
 let cameraPitch = 0;
 let walkBob = 0;
@@ -188,9 +305,9 @@ let fpsViewModel = null;
 
 // Upgrades & Player State
 const upgrades = {
-  bow: 1,    // 1: Base (25 dmg), 2: Cadencia Rápida (40 dmg), 3: Flecha Triple
-  drone: 1,  // 1: Pulso, 2: Láser de Plasma (35 dmg), 3: Escudo Deflector
-  armor: 1,  // 1: Base (100 hp), 2: Placas Reforzadas (150 hp), 3: Paso Ancestral (200 hp, vel +30%)
+  bow: 1,
+  drone: 1,
+  armor: 1,
 };
 
 const upgradeCosts = {
@@ -219,7 +336,9 @@ const player = {
 let currentLevel = 1;
 let levelBoss = null;
 let bolts = [];
+let enemyBolts = [];
 let particles = [];
+let ambientMotes = [];
 let enemies = [];
 let crystals = [];
 let portalCore;
@@ -256,12 +375,15 @@ let isUpgradeOpen = false;
 
 // Shared Materials
 const mats = {
-  stone: new THREE.MeshStandardMaterial({ color: 0x596864, roughness: 0.9 }),
-  stoneDark: new THREE.MeshStandardMaterial({ color: 0x35433f, roughness: 1 }),
+  stone: new THREE.MeshStandardMaterial({ color: 0x596864, roughness: 0.88 }),
+  stoneDark: new THREE.MeshStandardMaterial({ color: 0x2b3834, roughness: 0.95 }),
   cyan: new THREE.MeshStandardMaterial({ color: 0x72f5ff, emissive: 0x23afbd, emissiveIntensity: 2.2 }),
-  purple: new THREE.MeshStandardMaterial({ color: 0xad5bd1, emissive: 0x632080, emissiveIntensity: 1.5 }),
-  enemy: new THREE.MeshStandardMaterial({ color: 0x35223f, emissive: 0x7f2490, emissiveIntensity: 1.2, roughness: 0.48 }),
-  boss: new THREE.MeshStandardMaterial({ color: 0x24112e, emissive: 0x9e2cb0, emissiveIntensity: 2.0, roughness: 0.35, metalness: 0.6 }),
+  purple: new THREE.MeshStandardMaterial({ color: 0xad5bd1, emissive: 0x632080, emissiveIntensity: 1.8 }),
+  enemy: new THREE.MeshStandardMaterial({ color: 0x301e38, emissive: 0x822194, emissiveIntensity: 1.4, roughness: 0.45 }),
+  boss: new THREE.MeshStandardMaterial({ color: 0x200e28, emissive: 0xaa27bd, emissiveIntensity: 2.2, roughness: 0.35, metalness: 0.65 }),
+  gold: new THREE.MeshStandardMaterial({ color: 0xffd152, emissive: 0xcc8d08, emissiveIntensity: 1.6, metalness: 0.8, roughness: 0.25 }),
+  bark: new THREE.MeshStandardMaterial({ color: 0x223028, roughness: 0.95 }),
+  foliage: new THREE.MeshStandardMaterial({ color: 0x386d4e, roughness: 0.85 }),
 };
 
 function mesh(geometry, material, shadows = true) {
@@ -286,79 +408,236 @@ function addEssence(amount) {
   updateUpgradeUI();
 }
 
+// ==========================================================================
+// Enhanced 3D World Generation with Full Colliders & Rich Atmosphere
+// ==========================================================================
 function createWorld() {
+  worldColliders = [];
+
+  // Dramatic Lighting
   scene.add(new THREE.HemisphereLight(0xbfe8eb, 0x273322, 2.2));
-  const sun = new THREE.DirectionalLight(0xffd4a0, 4.4);
-  sun.position.set(-22, 36, 18);
+  const sun = new THREE.DirectionalLight(0xffdfb3, 4.2);
+  sun.position.set(-26, 42, 22);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -48, right: 48, top: 42, bottom: -42 });
+  Object.assign(sun.shadow.camera, { left: -52, right: 52, top: 46, bottom: -46, near: 1, far: 140 });
   scene.add(sun);
 
-  const fillLight = new THREE.DirectionalLight(0xa5e5ea, 1.2);
-  fillLight.position.set(20, 15, -15);
+  const fillLight = new THREE.DirectionalLight(0x8ae5ea, 1.4);
+  fillLight.position.set(24, 18, -18);
   scene.add(fillLight);
 
-  const groundGeo = new THREE.PlaneGeometry(WORLD.width, WORLD.depth, 36, 28);
+  // High-Density 3D Sculpted Terrain
+  const groundGeo = new THREE.PlaneGeometry(WORLD.width, WORLD.depth, 76, 58);
   const positions = groundGeo.attributes.position;
   const colors = [];
   const tint = new THREE.Color();
+
   for (let i = 0; i < positions.count; i += 1) {
     const x = positions.getX(i);
     const y = positions.getY(i);
-    positions.setZ(i, Math.sin(x * 0.22) * 0.16 + Math.cos(y * 0.28) * 0.12);
-    tint.set(i % 5 === 0 ? 0x375742 : 0x294b3f);
+    const worldX = x;
+    const worldZ = -y;
+    const height = getTerrainHeight(worldX, worldZ);
+    positions.setZ(i, height);
+
+    // Natural Biome Vertex Coloring: valleys vs ridges vs cyber seams
+    const dCenter = Math.hypot(worldX, worldZ);
+    if (dCenter < 8) {
+      tint.set(0x384a44); // Ancient stone plaza
+    } else if (height > 2.0) {
+      tint.set(0x485850); // Rocky crags
+    } else if (Math.abs(Math.sin(worldX * 0.3) * Math.cos(worldZ * 0.3)) > 0.88) {
+      tint.set(0x19665c); // Bioluminescent cyber moss
+    } else {
+      tint.set(i % 4 === 0 ? 0x2b523f : 0x214434); // Lush valley meadow
+    }
     colors.push(tint.r, tint.g, tint.b);
   }
+
   groundGeo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   groundGeo.computeVertexNormals();
-  const ground = mesh(groundGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96 }), false);
+
+  const groundMat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.92,
+    metalness: 0.1,
+  });
+  const ground = mesh(groundGeo, groundMat, false);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
 
-  const pathMat = new THREE.MeshStandardMaterial({ color: 0x71806e, roughness: 1, transparent: true, opacity: 0.62 });
-  for (let i = 0; i < 18; i += 1) {
-    const slab = mesh(new THREE.BoxGeometry(3.3 + (i % 3), 0.12, 1.7), pathMat);
-    slab.position.set(-28 + i * 3.4, 0.13, Math.sin(i * 0.7) * 2.8);
-    slab.rotation.y = Math.sin(i * 1.4) * 0.12;
-    scene.add(slab);
-  }
+  // Ancient Cobblestone Paved Paths connecting shrines
+  createPavedPathways();
 
-  createRuins(-20, -14, 0.2);
-  createRuins(12, -11, -0.45);
-  createRuins(24, 14, 0.72);
+  // Grand Ancient Cyber-Ruins with Registered Colliders
+  createRuins(-22, -14, 0.2);
+  createRuins(14, -12, -0.45);
+  createRuins(24, 16, 0.72);
+  createRuins(-12, 18, -0.3);
+
+  // Floating Runic Monoliths
+  createMonolith(-28, 4, 0.5);
+  createMonolith(28, -2, -0.4);
+  createMonolith(-4, -22, 0.8);
+  createMonolith(2, 24, -0.7);
+
+  // Bioluminescent Crystal Formations
+  createCrystalCluster(-16, -6, 0x88f5ff);
+  createCrystalCluster(18, 4, 0xd05eff);
+  createCrystalCluster(-8, 12, 0x5ef4ff);
+  createCrystalCluster(10, -20, 0xbd47ff);
+
+  // Ancient Portal
   createPortal(34, -20);
-  createFlora();
+
+  // Gnarled Cyber-Trees & Flora
+  createDetailedFlora();
+
+  // Boulders & Rocks
+  createRockFormations();
+
+  // Majestic Mountain Citadels
   createMountains();
+
+  // Ambient Floating Cyber-Spores / Embers
+  createAmbientMotes();
+}
+
+function createPavedPathways() {
+  const pathMat = new THREE.MeshStandardMaterial({ color: 0x62736b, roughness: 0.95 });
+  const runeMat = new THREE.MeshStandardMaterial({ color: 0x47e8f5, emissive: 0x1da6b2, emissiveIntensity: 2.0 });
+
+  for (let i = 0; i < 22; i += 1) {
+    const x = -30 + i * 2.9;
+    const z = Math.sin(i * 0.65) * 2.6;
+    const y = getTerrainHeight(x, z);
+
+    const slab = mesh(new THREE.BoxGeometry(2.8 + (i % 3) * 0.4, 0.14, 2.0), pathMat);
+    slab.position.set(x, y + 0.07, z);
+    slab.rotation.y = Math.sin(i * 1.2) * 0.1;
+    scene.add(slab);
+
+    // Glowing runic conduit seam
+    if (i % 3 === 0) {
+      const seam = mesh(new THREE.BoxGeometry(2.4, 0.04, 0.08), runeMat, false);
+      seam.position.set(x, y + 0.15, z);
+      scene.add(seam);
+    }
+  }
 }
 
 function createRuins(x, z, rotation) {
   const ruin = new THREE.Group();
-  ruin.position.set(x, 0, z);
+  const y = getTerrainHeight(x, z);
+  ruin.position.set(x, y, z);
   ruin.rotation.y = rotation;
-  const base = mesh(new THREE.BoxGeometry(12, 0.7, 5), mats.stoneDark);
-  base.position.y = 0.35;
+
+  // Base platform
+  const base = mesh(new THREE.BoxGeometry(12, 0.8, 5.5), mats.stoneDark);
+  base.position.y = 0.4;
   ruin.add(base);
+  addBoxCollider(x - 5.8, x + 5.8, z - 2.6, z + 2.6, "ruin_base");
+
+  // Columns with cylinder colliders
   [-4.8, 4.8].forEach((px, i) => {
-    const pillar = mesh(new THREE.BoxGeometry(1.5, 6 - i * 1.2, 1.5), mats.stone);
-    pillar.position.set(px, 3 - i * 0.6, 0);
+    const pillarH = 6.2 - i * 1.0;
+    const pillar = mesh(new THREE.BoxGeometry(1.6, pillarH, 1.6), mats.stone);
+    pillar.position.set(px, pillarH / 2 + 0.4, 0);
     ruin.add(pillar);
+
+    // Transform pillar local pos to world for circle collider
+    const pWorld = new THREE.Vector3(px, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotation).add(new THREE.Vector3(x, 0, z));
+    addCircleCollider(pWorld.x, pWorld.z, 1.0, "ruin_pillar");
   });
-  const beam = mesh(new THREE.BoxGeometry(11.5, 1.1, 1.6), mats.stone);
-  beam.position.set(0, 5.5, 0);
+
+  // Top lintel arch beam
+  const beam = mesh(new THREE.BoxGeometry(11.8, 1.2, 1.8), mats.stone);
+  beam.position.set(0, 6.2, 0);
   ruin.add(beam);
-  const rune = mesh(new THREE.BoxGeometry(5, 0.08, 0.12), mats.cyan, false);
-  rune.position.set(0, 5.48, 0.86);
+
+  // Glowing Runic Inscription
+  const rune = mesh(new THREE.BoxGeometry(6.2, 0.12, 0.14), mats.cyan, false);
+  rune.position.set(0, 6.18, 0.95);
   ruin.add(rune);
+
   scene.add(ruin);
+}
+
+function createMonolith(x, z, rotation) {
+  const group = new THREE.Group();
+  const y = getTerrainHeight(x, z);
+  group.position.set(x, y, z);
+  group.rotation.y = rotation;
+
+  // Ground stone pedestal with collider
+  const pedestal = mesh(new THREE.CylinderGeometry(1.6, 2.0, 0.7, 8), mats.stoneDark);
+  pedestal.position.y = 0.35;
+  group.add(pedestal);
+  addCircleCollider(x, z, 1.8, "monolith_base");
+
+  // Hovering Runic Obelisk
+  const obelisk = mesh(new THREE.OctahedronGeometry(1.2, 0), mats.enemy);
+  obelisk.scale.set(0.9, 3.2, 0.9);
+  obelisk.position.y = 3.8;
+  group.add(obelisk);
+
+  // Rotating Runic Halo
+  const halo = mesh(new THREE.TorusGeometry(1.6, 0.08, 6, 24), mats.cyan, false);
+  halo.position.y = 3.8;
+  halo.rotation.x = Math.PI / 2;
+  group.add(halo);
+
+  const light = new THREE.PointLight(0x73eff7, 2.2, 12);
+  light.position.y = 4.0;
+  group.add(light);
+
+  scene.add(group);
+}
+
+function createCrystalCluster(x, z, colorHex) {
+  const group = new THREE.Group();
+  const y = getTerrainHeight(x, z);
+  group.position.set(x, y, z);
+
+  const base = mesh(new THREE.DodecahedronGeometry(1.4), mats.stoneDark);
+  base.position.y = 0.5;
+  group.add(base);
+  addCircleCollider(x, z, 1.5, "crystal_cluster");
+
+  const crystalMat = new THREE.MeshStandardMaterial({
+    color: colorHex,
+    emissive: colorHex,
+    emissiveIntensity: 2.8,
+    roughness: 0.2,
+    metalness: 0.5,
+  });
+
+  for (let i = 0; i < 5; i++) {
+    const angle = (i * Math.PI * 2) / 5;
+    const h = 1.2 + (i % 3) * 0.6;
+    const c = mesh(new THREE.ConeGeometry(0.24, h, 6), crystalMat);
+    c.position.set(Math.sin(angle) * 0.7, 0.6 + h / 2, Math.cos(angle) * 0.7);
+    c.rotation.x = (Math.random() - 0.5) * 0.4;
+    c.rotation.z = (Math.random() - 0.5) * 0.4;
+    group.add(c);
+  }
+
+  const pLight = new THREE.PointLight(colorHex, 2.0, 10);
+  pLight.position.y = 2.0;
+  group.add(pLight);
+
+  scene.add(group);
 }
 
 function createPortal(x, z) {
   const portal = new THREE.Group();
-  portal.position.set(x, 4.4, z);
+  const y = getTerrainHeight(x, z);
+  portal.position.set(x, y + 4.4, z);
   portal.rotation.y = -0.45;
-  portal.add(mesh(new THREE.TorusGeometry(4.8, 0.85, 10, 38), mats.stone));
+
+  portal.add(mesh(new THREE.TorusGeometry(4.8, 0.9, 12, 42), mats.stone));
   portalCore = mesh(
     new THREE.CircleGeometry(3.85, 42),
     new THREE.MeshBasicMaterial({ color: 0x183b43, transparent: true, opacity: 0.28, side: THREE.DoubleSide }),
@@ -366,51 +645,127 @@ function createPortal(x, z) {
   );
   portalCore.position.z = -0.02;
   portal.add(portalCore);
-  const base = mesh(new THREE.BoxGeometry(12, 1.1, 4), mats.stoneDark);
+
+  const base = mesh(new THREE.BoxGeometry(12, 1.2, 4.4), mats.stoneDark);
   base.position.y = -4.5;
   portal.add(base);
+  addBoxCollider(x - 5.5, x + 5.5, z - 2.2, z + 2.2, "portal_base");
+
   scene.add(portal);
 }
 
-function createFlora() {
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x293c2c, roughness: 1 });
-  const leafMats = [0x4c8b51, 0x438d78, 0x7b477e].map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.9 }));
-  for (let i = 0; i < 85; i += 1) {
-    const x = ((i * 31.7) % 76) - 38;
-    const z = ((i * 19.3 + 9) % 56) - 28;
-    if (Math.abs(z - Math.sin((x + 28) / 3.4) * 2.8) < 3) continue;
+function createDetailedFlora() {
+  const leafMats = [mats.foliage, new THREE.MeshStandardMaterial({ color: 0x2e6b62, roughness: 0.85 }), mats.enemy];
+
+  for (let i = 0; i < 75; i += 1) {
+    const x = ((i * 37.3) % 76) - 38;
+    const z = ((i * 23.7 + 11) % 56) - 28;
+    // Don't spawn on main center path
+    if (Math.hypot(x, z) < 9) continue;
+
+    const y = getTerrainHeight(x, z);
     const plant = new THREE.Group();
-    plant.position.set(x, 0.1, z);
-    const stem = mesh(new THREE.CylinderGeometry(0.07, 0.12, 0.8, 5), trunkMat, false);
-    stem.position.y = 0.4;
+    plant.position.set(x, y, z);
+
+    // Gnarled Cyber-Trunk with Collider
+    const stem = mesh(new THREE.CylinderGeometry(0.18, 0.32, 1.8, 6), mats.bark, true);
+    stem.position.y = 0.9;
+    stem.rotation.z = Math.sin(i) * 0.15;
     plant.add(stem);
-    const leaves = mesh(new THREE.ConeGeometry(0.35 + (i % 4) * 0.08, 1.1, 5), leafMats[i % 3], false);
-    leaves.position.y = 0.95;
-    plant.add(leaves);
+    addCircleCollider(x, z, 0.45, "tree_trunk");
+
+    // Tiered Geometric Foliage Canopy
+    for (let layer = 0; layer < 3; layer++) {
+      const leaves = mesh(new THREE.ConeGeometry(1.4 - layer * 0.35, 1.2, 6), leafMats[(i + layer) % 3], true);
+      leaves.position.y = 1.8 + layer * 0.8;
+      leaves.rotation.y = layer * 0.5;
+      plant.add(leaves);
+    }
+
     scene.add(plant);
   }
 }
 
+function createRockFormations() {
+  const rockPositions = [
+    [-18, 12, 1.4], [-8, -14, 1.8], [6, 18, 1.2], [22, -8, 1.6],
+    [-32, -18, 2.2], [30, 10, 1.9], [-26, 22, 1.5], [16, 26, 1.7]
+  ];
+
+  rockPositions.forEach(([rx, rz, scale]) => {
+    const ry = getTerrainHeight(rx, rz);
+    const rock = mesh(new THREE.DodecahedronGeometry(scale, 1), mats.stoneDark);
+    rock.position.set(rx, ry + scale * 0.6, rz);
+    rock.rotation.set(rx, rz, scale);
+    scene.add(rock);
+    addCircleCollider(rx, rz, scale * 1.05, "rock");
+  });
+}
+
 function createMountains() {
-  const mountainMat = new THREE.MeshStandardMaterial({ color: 0x52675f, roughness: 1 });
-  for (let i = 0; i < 20; i += 1) {
-    const angle = (i / 20) * Math.PI * 2;
-    const radius = 56 + (i % 4) * 4;
-    const mountain = mesh(new THREE.ConeGeometry(7 + (i % 3) * 2, 15 + (i % 5) * 3, 6), mountainMat, false);
-    mountain.position.set(Math.cos(angle) * radius, 5, Math.sin(angle) * radius);
+  const mountainMat = new THREE.MeshStandardMaterial({ color: 0x3e4e47, roughness: 1.0 });
+  for (let i = 0; i < 28; i += 1) {
+    const angle = (i / 28) * Math.PI * 2;
+    const radius = 58 + (i % 5) * 5;
+    const h = 18 + (i % 6) * 5;
+    const mountain = mesh(new THREE.ConeGeometry(9 + (i % 4) * 2, h, 6), mountainMat, false);
+    const mx = Math.cos(angle) * radius;
+    const mz = Math.sin(angle) * radius;
+    mountain.position.set(mx, h / 2 - 2, mz);
+    mountain.rotation.y = angle + 0.3;
     scene.add(mountain);
   }
 }
 
+function createAmbientMotes() {
+  const moteGeo = new THREE.BufferGeometry();
+  const count = 140;
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 78;
+    positions[i * 3 + 1] = 1 + Math.random() * 8;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 58;
+  }
+  moteGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+  const moteMat = new THREE.PointsMaterial({
+    color: 0x72f5ff,
+    size: 0.18,
+    transparent: true,
+    opacity: 0.75,
+    blending: THREE.AdditiveBlending,
+  });
+
+  const motePoints = new THREE.Points(moteGeo, moteMat);
+  scene.add(motePoints);
+  ambientMotes.push({ points: motePoints, count });
+}
+
+function updateAmbientMotes(dt) {
+  ambientMotes.forEach(({ points, count }) => {
+    const pos = points.geometry.attributes.position.array;
+    for (let i = 0; i < count; i++) {
+      pos[i * 3 + 1] += Math.sin(elapsed * 2 + i) * 0.008;
+      pos[i * 3] += Math.cos(elapsed * 1.5 + i) * 0.005;
+      if (pos[i * 3 + 1] > 10) pos[i * 3 + 1] = 1;
+    }
+    points.geometry.attributes.position.needsUpdate = true;
+  });
+}
+
+// ==========================================================================
+// Player Initialization & Systems
+// ==========================================================================
 function initPlayer() {
   const heroine = createProtagonist();
-  heroine.root.position.set(-31, 0, 18);
+  const startY = getTerrainHeight(-31, 18);
+  heroine.root.position.set(-31, startY, 18);
   scene.add(heroine.root);
 
   player.group = heroine.root;
   player.heroine = heroine;
 
-  // Create First-Person ViewModel attached directly to Camera
+  // First-Person ViewModel attached directly to Camera
   const pMats = createProtagonistMaterials();
   fpsViewModel = createFPSViewModel(pMats);
   camera.add(fpsViewModel.fpsRig);
@@ -441,20 +796,29 @@ function applyPlayerUpgrades() {
 
 function createCrystal(x, z) {
   const group = new THREE.Group();
-  group.position.set(x, 0, z);
-  const base = mesh(new THREE.CylinderGeometry(1.45, 1.8, 0.65, 7), mats.stoneDark);
-  base.position.y = 0.32;
+  const y = getTerrainHeight(x, z);
+  group.position.set(x, y, z);
+
+  const base = mesh(new THREE.CylinderGeometry(1.5, 1.9, 0.7, 8), mats.stoneDark);
+  base.position.y = 0.35;
   group.add(base);
-  const gem = mesh(new THREE.OctahedronGeometry(1.15, 0), mats.purple);
-  gem.position.y = 2;
+  addCircleCollider(x, z, 1.6, "crystal_pedestal");
+
+  const gem = mesh(new THREE.OctahedronGeometry(1.2, 0), mats.purple);
+  gem.position.y = 2.1;
   group.add(gem);
-  const light = new THREE.PointLight(0xb363dc, 2.2, 9);
-  light.position.y = 2;
+
+  const light = new THREE.PointLight(0xb363dc, 2.4, 10);
+  light.position.y = 2.1;
   group.add(light);
+
   scene.add(group);
   crystals.push({ group, gem, light, active: false });
 }
 
+// ==========================================================================
+// Level Loading & Dynamic Enemies Spawning
+// ==========================================================================
 function loadLevel(levelNum) {
   currentLevel = levelNum;
   levelCleared = false;
@@ -463,9 +827,11 @@ function loadLevel(levelNum) {
   enemies.forEach((e) => scene.remove(e.group));
   crystals.forEach((c) => scene.remove(c.group));
   bolts.forEach((b) => scene.remove(b.mesh));
+  enemyBolts.forEach((b) => scene.remove(b.mesh));
   enemies = [];
   crystals = [];
   bolts = [];
+  enemyBolts = [];
   levelBoss = null;
   bossHud.classList.add("hidden");
 
@@ -481,97 +847,123 @@ function loadLevel(levelNum) {
     createCrystal(7, 13);
     createCrystal(24, -17);
 
-    const configs = [[-16, 8], [-2, -7], [12, 9], [23, -4], [29, 17], [3, 20]];
-    enemies = configs.map(([x, z], i) => spawnGuardian(x, z, 45, 2.2 + (i % 3) * 0.35, 1.0));
+    // Spawning Sentinel Drones & Corrupted Stalkers
+    enemies.push(spawnSentinelEnemy(-16, 8, 45, 2.2));
+    enemies.push(spawnStalkerEnemy(-2, -7, 60, 3.4));
+    enemies.push(spawnSentinelEnemy(12, 9, 45, 2.2));
+    enemies.push(spawnStalkerEnemy(23, -4, 60, 3.5));
+    enemies.push(spawnSentinelEnemy(29, 17, 45, 2.4));
+    enemies.push(spawnStalkerEnemy(3, 20, 60, 3.3));
+
     showToast("✨ Misión: Sintoniza los 3 cristales ancestrales");
   } else if (currentLevel === 2) {
     levelTitle.textContent = "NIVEL 2";
-    scene.background.set(0x453158);
-    scene.fog.color.set(0x382647);
+    scene.background.set(0x382247);
+    scene.fog.color.set(0x2f1c3d);
 
     createCrystal(-25, 12);
     createCrystal(-6, -16);
     createCrystal(14, 18);
     createCrystal(28, -6);
 
-    const configs = [
-      [-20, 5], [-12, -12], [-4, 8], [8, -8],
-      [16, 6], [22, -14], [28, 12], [2, 22], [-18, 22]
-    ];
-    enemies = configs.map(([x, z], i) => spawnGuardian(x, z, 65, 3.2 + (i % 3) * 0.4, 1.1, true));
+    // Spawning Elite Drones and Fast Stalkers
+    enemies.push(spawnSentinelEnemy(-20, 5, 70, 2.5, true));
+    enemies.push(spawnStalkerEnemy(-12, -12, 85, 3.8, true));
+    enemies.push(spawnSentinelEnemy(-4, 8, 70, 2.5, true));
+    enemies.push(spawnStalkerEnemy(8, -8, 85, 3.8, true));
+    enemies.push(spawnSentinelEnemy(16, 6, 70, 2.6, true));
+    enemies.push(spawnStalkerEnemy(22, -14, 85, 3.9, true));
+    enemies.push(spawnSentinelEnemy(28, 12, 70, 2.6, true));
+    enemies.push(spawnStalkerEnemy(2, 22, 85, 3.8, true));
+
     showToast("⚡ Misión: Sintoniza los 4 monolitos sombríos");
   } else if (currentLevel === 3) {
     levelTitle.textContent = "NIVEL 3";
-    scene.background.set(0x281a36);
-    scene.fog.color.set(0x1e122b);
+    scene.background.set(0x1e122b);
+    scene.fog.color.set(0x180d24);
 
     createCrystal(-15, 0);
     createCrystal(15, 0);
 
     spawnTitanBoss(18, -12);
-    enemies.push(spawnGuardian(-10, 14, 50, 2.8, 1.0));
-    enemies.push(spawnGuardian(10, 14, 50, 2.8, 1.0));
+    enemies.push(spawnSentinelEnemy(-10, 14, 60, 2.6));
+    enemies.push(spawnStalkerEnemy(10, 14, 75, 3.6));
 
     bossHud.classList.remove("hidden");
     bossHealthFill.style.width = "100%";
     showToast("👑 ¡Derrota al Titán Ancestral Corrupto!");
   }
 
+  const startY = getTerrainHeight(-31, 18);
   player.health = player.maxHealth;
-  player.group.position.set(-31, 0, 18);
+  player.group.position.set(-31, startY, 18);
   player.velocity.set(0, 0, 0);
 }
 
-function spawnGuardian(x, z, health = 45, speed = 2.4, scale = 1.0, isElite = false) {
-  const group = new THREE.Group();
-  const body = mesh(new THREE.IcosahedronGeometry(0.95 * scale, 1), isElite ? mats.boss : mats.enemy);
-  body.position.y = 1.35 * scale;
-  group.add(body);
+function spawnSentinelEnemy(x, z, health = 45, speed = 2.4, isElite = false) {
+  const model = createSentinelDrone(mats, isElite);
+  const y = getTerrainHeight(x, z);
+  model.root.position.set(x, y, z);
+  scene.add(model.root);
 
-  const ring = mesh(new THREE.TorusGeometry(1.25 * scale, 0.09, 6, 18), mats.purple);
-  ring.position.y = 1.35 * scale;
-  ring.rotation.x = Math.PI / 2;
-  group.add(ring);
+  return {
+    group: model.root,
+    model,
+    type: "drone",
+    health,
+    maxHealth: health,
+    speed,
+    isElite,
+    isBoss: false,
+    radius: model.radius,
+    hoverHeight: 0.15,
+  };
+}
 
-  const eye = mesh(new THREE.SphereGeometry(0.2 * scale, 10, 8), mats.cyan);
-  eye.position.set(0, 1.42 * scale, 0.96 * scale);
-  group.add(eye);
+function spawnStalkerEnemy(x, z, health = 60, speed = 3.5, isElite = false) {
+  const model = createCorruptedStalker(mats, isElite);
+  const y = getTerrainHeight(x, z);
+  model.root.position.set(x, y, z);
+  scene.add(model.root);
 
-  group.position.set(x, 0.15, z);
-  scene.add(group);
-  return { group, health, maxHealth: health, speed, isElite, isBoss: false };
+  return {
+    group: model.root,
+    model,
+    type: "stalker",
+    health,
+    maxHealth: health,
+    speed,
+    isElite,
+    isBoss: false,
+    radius: model.radius,
+    hoverHeight: 0.05,
+  };
 }
 
 function spawnTitanBoss(x, z) {
-  const group = new THREE.Group();
-  const scale = 2.6;
+  const model = createTitanBossModel(mats);
+  const y = getTerrainHeight(x, z);
+  model.root.position.set(x, y, z);
+  scene.add(model.root);
 
-  const core = mesh(new THREE.DodecahedronGeometry(1.4 * scale), mats.boss);
-  core.position.y = 3.6;
-  group.add(core);
-
-  const crown = mesh(new THREE.TorusGeometry(1.6 * scale, 0.2, 8, 24), mats.purple);
-  crown.position.y = 4.2;
-  crown.rotation.x = Math.PI / 2;
-  group.add(crown);
-
-  const mainEye = mesh(new THREE.SphereGeometry(0.6, 16, 12), mats.cyan);
-  mainEye.position.set(0, 3.8, 2.2);
-  group.add(mainEye);
-
-  const auraRing = mesh(new THREE.RingGeometry(2.8 * scale, 3.2 * scale, 32), mats.cyan, false);
-  auraRing.rotation.x = Math.PI / 2;
-  auraRing.position.y = 0.2;
-  group.add(auraRing);
-
-  group.position.set(x, 0.2, z);
-  scene.add(group);
-
-  levelBoss = { group, health: 500, maxHealth: 500, speed: 1.8, isBoss: true };
+  levelBoss = {
+    group: model.root,
+    model,
+    type: "boss",
+    health: 600,
+    maxHealth: 600,
+    speed: 1.8,
+    isElite: true,
+    isBoss: true,
+    radius: model.radius,
+    hoverHeight: 0.2,
+  };
   enemies.push(levelBoss);
 }
 
-// Combat: Shooting & Weapon Handling
+// ==========================================================================
+// Combat: Weapons, Recoil, Projectiles & EMP
+// ==========================================================================
 function shoot() {
   if (inspectMode || isLeaderboardOpen || isUpgradeOpen || player.energy < 12 || player.shootCooldown > 0 || gameOver || gameFinished) return;
   initAudio();
@@ -586,12 +978,10 @@ function shoot() {
   let origin = new THREE.Vector3();
 
   if (cameraMode === "fps") {
-    // In First Person, shoots straight where camera is looking
     camera.getWorldDirection(direction);
     origin.copy(camera.position).addScaledVector(direction, 0.6);
     fpsViewModel.playShoot();
   } else {
-    // In Third Person, shoots from hero towards aim point
     origin.copy(player.group.position).add(new THREE.Vector3(0, 1.5, 0));
     direction.copy(aimPoint).sub(player.group.position);
     direction.y = 0;
@@ -617,17 +1007,16 @@ function shoot() {
     boltMesh.position.copy(origin).addScaledVector(finalDir, 0.8);
     boltMesh.lookAt(boltMesh.position.clone().add(finalDir));
     scene.add(boltMesh);
-    bolts.push({ mesh: boltMesh, velocity: finalDir.multiplyScalar(32), damage: arrowDamage, life: 1.6 });
+    bolts.push({ mesh: boltMesh, velocity: finalDir.multiplyScalar(34), damage: arrowDamage, life: 1.6 });
   };
 
   fireBolt(0);
   if (upgrades.bow >= 3) {
-    fireBolt(0.15);
-    fireBolt(-0.15);
+    fireBolt(0.14);
+    fireBolt(-0.14);
   }
 }
 
-// Special Ability: Companion Guardian Shockwave / EMP
 function triggerDroneShockwave() {
   if (inspectMode || player.energy < 32 || player.specialCooldown > 0 || gameOver || gameFinished) return;
   initAudio();
@@ -638,12 +1027,10 @@ function triggerDroneShockwave() {
 
   const center = player.group.position.clone();
   burst(center, 0x5df8ff, 36);
-
   showToast("💥 ¡Onda EMP del Guardián activada!");
 
-  // Expand shockwave ring
   const shockRing = mesh(new THREE.RingGeometry(0.6, 1.4, 32), mats.cyan, false);
-  shockRing.rotation.x = Math.PI / 2;
+  shockRing.rotation.x = -Math.PI / 2;
   shockRing.position.copy(center).add(new THREE.Vector3(0, 0.4, 0));
   scene.add(shockRing);
 
@@ -673,13 +1060,13 @@ function triggerDroneShockwave() {
 function destroyEnemy(enemy) {
   const idx = enemies.indexOf(enemy);
   if (idx !== -1) {
-    burst(enemy.group.position, 0xd66cff, 22);
+    burst(enemy.group.position, 0xd66cff, 26);
     playSound("hit");
     scene.remove(enemy.group);
     enemies.splice(idx, 1);
     player.enemiesDefeated += 1;
-    addEssence(25);
-    showToast("+25 💎 Esencia Ancestral");
+    addEssence(30);
+    showToast("+30 💎 Esencia Ancestral");
   }
 }
 
@@ -697,12 +1084,12 @@ function burst(position, color = 0x73eff7, count = 8) {
   }
 }
 
-// Smart Companion Guardian AI (Autonomous Defense & Scanner)
+// Companion Guardian AI (Autonomous Defense & Scanner)
 function updateCompanionGuardian(dt) {
   const drone = player.heroine.drone;
   if (!drone) return;
 
-  // 1. Autonomous Target Acquisition: find closest enemy
+  // Autonomous Target Acquisition
   let closestTarget = null;
   let closestDist = 24;
   enemies.forEach((enemy) => {
@@ -719,7 +1106,6 @@ function updateCompanionGuardian(dt) {
     const enemyPos = closestTarget.group.position.clone().add(new THREE.Vector3(0, 1.2, 0));
     drone.userData.spotTarget.position.copy(enemyPos);
 
-    // Turn drone targeting laser on
     if (drone.userData.laser) {
       drone.userData.laser.material.opacity = 0.85;
       const pts = [
@@ -729,7 +1115,6 @@ function updateCompanionGuardian(dt) {
       drone.userData.laser.geometry.setFromPoints(pts);
     }
 
-    // Autonomous Plasma Darts
     droneAutoShootTimer -= dt;
     const fireInterval = upgrades.drone === 1 ? 1.4 : upgrades.drone === 2 ? 0.9 : 0.55;
     if (droneAutoShootTimer <= 0 && !gameOver && !gameFinished && !inspectMode) {
@@ -750,14 +1135,12 @@ function updateCompanionGuardian(dt) {
       burst(droneWorldPos, 0x5ef4ff, 4);
     }
   } else {
-    // Idle Scanner Spotlight sweep
     if (drone.userData.laser) drone.userData.laser.material.opacity = 0;
     droneScanAngle += dt * 1.5;
     const sweepX = Math.sin(droneScanAngle) * 7;
     drone.userData.spotTarget.position.set(sweepX, 0, 14);
   }
 
-  // Shield Bubble positioning & rotation
   if (drone.userData.shieldBubble) {
     drone.userData.shieldBubble.visible = player.shieldActive;
     if (player.shieldActive) {
@@ -766,7 +1149,6 @@ function updateCompanionGuardian(dt) {
     }
   }
 
-  // Positioning in First Person Mode
   if (cameraMode === "fps" && !inspectMode) {
     const camDir = new THREE.Vector3();
     camera.getWorldDirection(camDir);
@@ -794,13 +1176,12 @@ function updateAim() {
   }
 }
 
-// Fluid Movement Physics with Acceleration & Friction
+// Fluid Movement with Object Collisions & Terrain Snapping
 function updatePlayer(dt) {
   const currentSpeed = player.speed * (isSprinting ? 1.45 : 1.0);
   const move = new THREE.Vector3();
 
   if (cameraMode === "fps") {
-    // Movement relative to camera view angle (FPS strafing and forward/back)
     const forward = new THREE.Vector3(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
     const right = new THREE.Vector3(-forward.z, 0, forward.x);
 
@@ -814,7 +1195,6 @@ function updatePlayer(dt) {
       move.addScaledVector(right, joystick.vector.x);
     }
   } else {
-    // Isometric third person movement
     if (keys.has("w") || keys.has("arrowup")) move.z -= 1;
     if (keys.has("s") || keys.has("arrowdown")) move.z += 1;
     if (keys.has("a") || keys.has("arrowleft")) move.x -= 1;
@@ -829,15 +1209,18 @@ function updatePlayer(dt) {
   const isMoving = move.lengthSq() > 0.01;
   if (isMoving) move.normalize();
 
-  // Smooth acceleration and deceleration
   const targetVelocity = move.multiplyScalar(isMoving ? currentSpeed : 0);
   player.velocity.lerp(targetVelocity, 1 - Math.exp(-14 * dt));
   player.group.position.addScaledVector(player.velocity, dt);
 
-  player.group.position.x = THREE.MathUtils.clamp(player.group.position.x, -39, 39);
-  player.group.position.z = THREE.MathUtils.clamp(player.group.position.z, -29, 29);
+  // Apply World Obstacle Collisions
+  resolveWorldCollision(player.group.position, 0.65);
 
-  // Head bobbing calculation for FPS
+  // Snap to 3D Terrain Height
+  const terrainY = getTerrainHeight(player.group.position.x, player.group.position.z);
+  player.group.position.y = terrainY;
+
+  // Head bobbing for FPS
   if (isMoving) {
     walkBob += dt * (isSprinting ? 14 : 10);
   }
@@ -849,7 +1232,6 @@ function updatePlayer(dt) {
   player.specialCooldown = Math.max(0, player.specialCooldown - dt);
   player.invulnerable = Math.max(0, player.invulnerable - dt);
 
-  // Switch display between FPS and TPP
   if (cameraMode === "fps") {
     player.heroine.hips.visible = false;
     player.heroine.arcoDeLuz.visible = false;
@@ -870,7 +1252,7 @@ function updatePlayer(dt) {
 function updateCrystals(dt) {
   crystals.forEach((crystal) => {
     crystal.gem.rotation.y += dt * (crystal.active ? 1.9 : 0.7);
-    crystal.gem.position.y = 2 + Math.sin(elapsed * 2.4) * 0.22;
+    crystal.gem.position.y = 2.1 + Math.sin(elapsed * 2.4) * 0.22;
     if (!crystal.active && crystal.group.position.distanceTo(player.group.position) < 3.3) {
       crystal.active = true;
       crystal.gem.material = mats.cyan;
@@ -885,20 +1267,95 @@ function updateCrystals(dt) {
   });
 }
 
+// ==========================================================================
+// Advanced Enemy AI & Combat Behaviors
+// ==========================================================================
 function updateEnemies(dt) {
   enemies.forEach((enemy) => {
     const towardPlayer = player.group.position.clone().sub(enemy.group.position);
     const distance = towardPlayer.length();
     towardPlayer.y = 0;
 
-    if (distance < 24 && distance > 1.6) {
-      enemy.group.position.addScaledVector(towardPlayer.normalize(), enemy.speed * dt);
+    const isMoving = distance > 2.0 && distance < 26;
+
+    // Model specific animation updates
+    if (enemy.model && enemy.model.update) {
+      enemy.model.update(dt, elapsed, isMoving);
     }
-    enemy.group.position.y = 0.15 + Math.sin(elapsed * 3) * 0.18;
-    enemy.group.rotation.y += dt * 0.9;
+    // Update Floating 3D Health Bar Billboard
+    if (enemy.model && enemy.model.hpBar) {
+      enemy.model.hpBar.update(enemy.health, enemy.maxHealth, camera);
+    }
+
+    if (enemy.type === "drone") {
+      // Sentinel Drone: Stays at standoff distance (9-14m) and shoots plasma bolts
+      if (distance > 13) {
+        enemy.group.position.addScaledVector(towardPlayer.clone().normalize(), enemy.speed * dt);
+      } else if (distance < 8) {
+        // Backs away slightly
+        enemy.group.position.addScaledVector(towardPlayer.clone().normalize(), -enemy.speed * dt * 0.8);
+      }
+      enemy.group.lookAt(player.group.position.x, enemy.group.position.y, player.group.position.z);
+
+      // Targeting Laser & Charging Attack
+      enemy.model.shootCooldown -= dt;
+      if (distance < 22 && enemy.model.shootCooldown <= 1.2) {
+        enemy.model.targetingLaser.material.opacity = 0.8;
+        enemy.model.eyeMat.color.set(0xff1133);
+        enemy.model.eyeMat.emissive.set(0xff0022);
+      } else {
+        enemy.model.targetingLaser.material.opacity = 0;
+      }
+
+      if (enemy.model.shootCooldown <= 0 && distance < 22) {
+        enemy.model.shootCooldown = 2.8 + Math.random() * 1.2;
+        playSound("enemyShoot");
+
+        // Shoot plasma bolt towards player
+        const boltDir = player.group.position.clone().add(new THREE.Vector3(0, 1.4, 0)).sub(enemy.group.position).normalize();
+        const eBolt = mesh(new THREE.SphereGeometry(0.22, 8, 8), mats.purple, false);
+        eBolt.position.copy(enemy.group.position).add(new THREE.Vector3(0, 1.6, 0));
+        scene.add(eBolt);
+        enemyBolts.push({ mesh: eBolt, velocity: boltDir.multiplyScalar(20), damage: 16, life: 2.2 });
+        burst(eBolt.position, 0xbd3fff, 6);
+      }
+    } else if (enemy.type === "stalker") {
+      // Corrupted Stalker: Fast sprinter, charges directly at player
+      if (distance > 1.8 && distance < 26) {
+        enemy.group.position.addScaledVector(towardPlayer.clone().normalize(), enemy.speed * dt);
+        enemy.group.lookAt(player.group.position.x, enemy.group.position.y, player.group.position.z);
+      }
+    } else if (enemy.type === "boss") {
+      // Boss AI: Slow march, firing volleys and slam shockwaves
+      if (distance > 4.5) {
+        enemy.group.position.addScaledVector(towardPlayer.clone().normalize(), enemy.speed * dt);
+      }
+      enemy.group.lookAt(player.group.position.x, enemy.group.position.y, player.group.position.z);
+
+      enemy.model.shootCooldown -= dt;
+      if (enemy.model.shootCooldown <= 0) {
+        enemy.model.shootCooldown = 3.2;
+        playSound("enemyShoot");
+        // Triple volley
+        for (let i = -1; i <= 1; i++) {
+          const bDir = towardPlayer.clone().normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), i * 0.25);
+          const bMesh = mesh(new THREE.SphereGeometry(0.35, 10, 10), mats.boss, false);
+          bMesh.position.copy(enemy.group.position).add(new THREE.Vector3(0, 3.6, 0));
+          scene.add(bMesh);
+          enemyBolts.push({ mesh: bMesh, velocity: bDir.multiplyScalar(18), damage: 24, life: 2.5 });
+        }
+      }
+    }
+
+    // Apply obstacle collision resolution on enemies so they don't walk through walls/pillars
+    resolveWorldCollision(enemy.group.position, enemy.radius);
+
+    // Snap to 3D Terrain Height
+    const groundY = getTerrainHeight(enemy.group.position.x, enemy.group.position.z);
+    enemy.group.position.y = groundY + enemy.hoverHeight;
 
     // Contact attack on player
-    if (distance < 1.8 && player.invulnerable <= 0) {
+    if (distance < (enemy.radius + 0.8) && player.invulnerable <= 0) {
       if (upgrades.drone >= 3 && !player.shieldActive) {
         player.shieldActive = true;
         showToast("🛡️ ¡El Guardián desplegó su Escudo Deflector!");
@@ -925,6 +1382,7 @@ function updateEnemies(dt) {
   }
 }
 
+// Projectiles: Player Bolts & World Collisions
 function updateBolts(dt) {
   for (let i = bolts.length - 1; i >= 0; i -= 1) {
     const bolt = bolts[i];
@@ -932,24 +1390,73 @@ function updateBolts(dt) {
     bolt.life -= dt;
     let hit = false;
 
-    for (let j = enemies.length - 1; j >= 0; j -= 1) {
-      const enemy = enemies[j];
-      const hitRadius = enemy.isBoss ? 2.8 : 1.4;
-      if (bolt.mesh.position.distanceTo(enemy.group.position.clone().add(new THREE.Vector3(0, 1, 0))) < hitRadius) {
-        enemy.health -= bolt.damage;
-        burst(enemy.group.position, 0x73eff7, 8);
-        playSound("hit");
-        hit = true;
-        if (enemy.health <= 0) {
-          destroyEnemy(enemy);
+    // 1. Check Collision with World Obstacles (Pillars, Walls, Rocks)
+    if (checkProjectileCollision(bolt.mesh.position, 0.25)) {
+      burst(bolt.mesh.position, 0x73eff7, 10);
+      playSound("hit");
+      hit = true;
+    }
+
+    // 2. Check Collision with Enemies
+    if (!hit) {
+      for (let j = enemies.length - 1; j >= 0; j -= 1) {
+        const enemy = enemies[j];
+        const hitRadius = enemy.isBoss ? 3.0 : enemy.radius + 0.5;
+        const enemyCenter = enemy.group.position.clone().add(new THREE.Vector3(0, enemy.isBoss ? 3.0 : 1.2, 0));
+        if (bolt.mesh.position.distanceTo(enemyCenter) < hitRadius) {
+          enemy.health -= bolt.damage;
+          burst(enemy.group.position, 0x73eff7, 10);
+          playSound("hit");
+          hit = true;
+          if (enemy.health <= 0) {
+            destroyEnemy(enemy);
+          }
+          break;
         }
-        break;
       }
     }
 
     if (hit || bolt.life <= 0) {
       scene.remove(bolt.mesh);
       bolts.splice(i, 1);
+    }
+  }
+}
+
+// Enemy Projectiles: Travels towards player and checks obstacles / shield
+function updateEnemyBolts(dt) {
+  for (let i = enemyBolts.length - 1; i >= 0; i -= 1) {
+    const bolt = enemyBolts[i];
+    bolt.mesh.position.addScaledVector(bolt.velocity, dt);
+    bolt.life -= dt;
+    let hit = false;
+
+    // Obstacle collision
+    if (checkProjectileCollision(bolt.mesh.position, 0.3)) {
+      burst(bolt.mesh.position, 0xbd3fff, 8);
+      hit = true;
+    }
+
+    // Player collision
+    const playerCenter = player.group.position.clone().add(new THREE.Vector3(0, 1.3, 0));
+    if (!hit && bolt.mesh.position.distanceTo(playerCenter) < 1.2) {
+      hit = true;
+      if (player.shieldActive) {
+        showToast("🛡️ ¡Impacto absorbido por el Escudo!");
+        burst(bolt.mesh.position, 0x5df8ff, 14);
+      } else if (player.invulnerable <= 0) {
+        player.health -= bolt.damage;
+        player.invulnerable = 0.8;
+        burst(player.group.position, 0xff5577, 14);
+        playSound("hit");
+        vibrate(40);
+        if (player.health <= 0) gameOver = true;
+      }
+    }
+
+    if (hit || bolt.life <= 0) {
+      scene.remove(bolt.mesh);
+      enemyBolts.splice(i, 1);
     }
   }
 }
@@ -1003,7 +1510,6 @@ function updateCamera(dt) {
     camera.position.lerp(targetPos, 1 - Math.pow(0.001, dt));
     camera.lookAt(lookTarget);
   } else if (cameraMode === "fps") {
-    // First-Person Mode: eye level + realistic head bobbing
     const bob = Math.sin(walkBob) * (player.velocity.length() > 0.5 ? 0.05 : 0.008);
     const eyePos = player.group.position.clone().add(new THREE.Vector3(0, 2.3 + bob, 0));
     camera.position.copy(eyePos);
@@ -1012,7 +1518,6 @@ function updateCamera(dt) {
     camera.rotation.y = cameraYaw;
     camera.rotation.x = cameraPitch;
   } else {
-    // Third-Person Mode: isometric chase view
     const isPortrait = camera.aspect < 1;
     const camOffset = isPortrait ? new THREE.Vector3(14, 26, 26) : new THREE.Vector3(12, 18, 18);
     const desired = player.group.position.clone().add(camOffset);
@@ -1044,6 +1549,30 @@ function updateHud() {
       subObjectiveText.textContent = `Cristales de apoyo (${activeCrystals}/2)`;
     }
   }
+}
+
+// Battle Music UI & Toggling
+function updateMusicUI() {
+  if (musicEngine.isEnabled) {
+    if (musicIcon) musicIcon.textContent = "🎵";
+    if (musicText) musicText.textContent = "Música ON";
+    btnMusicToggle.classList.add("active");
+  } else {
+    if (musicIcon) musicIcon.textContent = "🔇";
+    if (musicText) musicText.textContent = "Música OFF";
+    btnMusicToggle.classList.remove("active");
+  }
+}
+
+function toggleMusic() {
+  initAudio();
+  const enabled = musicEngine.toggle();
+  updateMusicUI();
+  showToast(enabled ? "🎵 Música de Batalla Activada" : "🔇 Música Silenciada");
+}
+
+if (btnMusicToggle) {
+  btnMusicToggle.addEventListener("click", toggleMusic);
 }
 
 function toggleCameraMode() {
@@ -1216,6 +1745,11 @@ btnUpgradeArmor.addEventListener("click", () => buyUpgrade("armor"));
 // Mobile Touch Virtual Joystick & Tap to Aim / Look
 function handleTouchStart(e) {
   initAudio();
+  if (!musicEngine.isPlaying) {
+    musicEngine.start();
+    updateMusicUI();
+  }
+
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
     if (t.clientX < window.innerWidth * 0.44) {
@@ -1232,7 +1766,6 @@ function handleTouchStart(e) {
         if (!target.closest("button") && !target.closest("input") && !target.closest(".modal-box")) {
           touchLookId = t.identifier;
           prevTouchLook = { x: t.clientX, y: t.clientY };
-          // If in TPP, shoot toward tap point
           if (cameraMode === "tpp") {
             mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
@@ -1250,7 +1783,6 @@ function handleTouchMove(e) {
     if (joystick.active && t.identifier === joystick.identifier) {
       updateJoystick(t.clientX, t.clientY);
     }
-    // Rotate look angle in FPS mode on touch drag
     if (cameraMode === "fps" && t.identifier === touchLookId) {
       const dx = t.clientX - prevTouchLook.x;
       const dy = t.clientY - prevTouchLook.y;
@@ -1296,7 +1828,6 @@ window.addEventListener("touchmove", handleTouchMove, { passive: false });
 window.addEventListener("touchend", handleTouchEnd, { passive: false });
 window.addEventListener("touchcancel", handleTouchEnd, { passive: false });
 
-// Action Buttons
 btnTouchShoot.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); shoot(); });
 btnTouchShoot.addEventListener("pointerdown", (e) => { e.stopPropagation(); shoot(); });
 btnTouchSpecial.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); triggerDroneShockwave(); });
@@ -1347,7 +1878,6 @@ function resizeGame() {
 window.addEventListener("resize", resizeGame);
 window.addEventListener("orientationchange", () => setTimeout(resizeGame, 100));
 
-// Desktop Controls & Pointer Lock
 canvas.addEventListener("click", () => {
   if (cameraMode === "fps" && !inspectMode && !isLeaderboardOpen && !isUpgradeOpen) {
     try { canvas.requestPointerLock(); } catch (e) {}
@@ -1362,12 +1892,19 @@ window.addEventListener("mousemove", (e) => {
 });
 
 window.addEventListener("keydown", (e) => {
+  initAudio();
+  if (!musicEngine.isPlaying) {
+    musicEngine.start();
+    updateMusicUI();
+  }
+
   const k = e.key.toLowerCase();
   keys.add(k);
   if (e.key === " " && !inspectMode) { e.preventDefault(); shoot(); }
   if (e.key === "Shift") isSprinting = true;
   if (k === "q") triggerDroneShockwave();
   if (k === "c") toggleCameraMode();
+  if (k === "m") toggleMusic();
   if (k === "r") resetGame();
   if (k === "v") setInspectMode(!inspectMode);
   if (k === "u") {
@@ -1404,6 +1941,10 @@ canvas.addEventListener("pointermove", (e) => {
 
 canvas.addEventListener("pointerdown", (e) => {
   initAudio();
+  if (!musicEngine.isPlaying) {
+    musicEngine.start();
+    updateMusicUI();
+  }
   if (inspectMode) {
     isDragging = true;
     prevMousePos = { x: e.clientX, y: e.clientY };
@@ -1429,7 +1970,9 @@ tabButtons.forEach((btn) => {
 btnInspect.addEventListener("click", () => setInspectMode(true));
 btnExitInspect.addEventListener("click", () => setInspectMode(false));
 
-// Main Game Loop
+// ==========================================================================
+// Main Game Loop with Dynamic Music Intensity
+// ==========================================================================
 function animate(frameTime = performance.now()) {
   const dt = Math.min((frameTime - lastFrameTime) / 1000, 0.033);
   lastFrameTime = frameTime;
@@ -1443,11 +1986,31 @@ function animate(frameTime = performance.now()) {
     updateCrystals(dt);
     updateEnemies(dt);
     updateBolts(dt);
+    updateEnemyBolts(dt);
     updateParticles(dt);
+    updateAmbientMotes(dt);
     checkLevelCompletion();
+
+    // Dynamic Battle Music Intensity
+    if (musicEngine.isEnabled) {
+      let closestDist = 999;
+      enemies.forEach((e) => {
+        const d = e.group.position.distanceTo(player.group.position);
+        if (d < closestDist) closestDist = d;
+      });
+
+      if (currentLevel === 3 && levelBoss && levelBoss.health > 0) {
+        musicEngine.setIntensity("boss");
+      } else if (closestDist < 20) {
+        musicEngine.setIntensity("combat");
+      } else {
+        musicEngine.setIntensity("ambient");
+      }
+    }
   } else {
     player.heroine.update(dt, false, null, false, null);
     updateParticles(dt);
+    updateAmbientMotes(dt);
   }
 
   updateCamera(dt);

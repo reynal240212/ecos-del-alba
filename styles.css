@@ -236,6 +236,13 @@ meter::-webkit-meter-bar {
   transform: translateY(-1px);
 }
 
+.hud-btn.active {
+  background: linear-gradient(135deg, rgba(82, 248, 175, 0.35), rgba(16, 120, 80, 0.55));
+  border-color: #52f8af;
+  color: #c9ffe4;
+  box-shadow: 0 0 10px rgba(82, 248, 175, 0.4);
+}
+
 .kbd-hint {
   padding: 1px 4px;
   border: 1px solid rgba(115, 229, 237, 0.4);
