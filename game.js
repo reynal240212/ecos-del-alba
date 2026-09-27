@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js";
-import { createProtagonist } from "./character.js";
+import { createProtagonist, createProtagonistMaterials, createFPSViewModel } from "./character.js";
 
 // DOM Elements
 const canvas = document.querySelector("#game");
@@ -14,6 +14,8 @@ const modalEssenceCount = document.querySelector("#modal-essence-count");
 const missionToast = document.querySelector("#mission-toast");
 
 // Action Buttons & Modals
+const btnCamToggle = document.querySelector("#btn-cam-toggle");
+const camToggleText = document.querySelector("#cam-toggle-text");
 const btnInspect = document.querySelector("#btn-inspect");
 const inspectPanel = document.querySelector("#inspect-panel");
 const btnExitInspect = document.querySelector("#btn-exit-inspect");
@@ -48,9 +50,10 @@ const bossHealthFill = document.querySelector("#boss-health-fill");
 // Touch Controls Elements
 const joystickBase = document.querySelector("#joystick-base");
 const joystickThumb = document.querySelector("#joystick-thumb");
+const btnTouchCam = document.querySelector("#btn-touch-cam");
+const btnTouchDash = document.querySelector("#btn-touch-dash");
 const btnTouchShoot = document.querySelector("#btn-touch-shoot");
 const btnTouchSpecial = document.querySelector("#btn-touch-special");
-const btnTouchUpgrades = document.querySelector("#btn-touch-upgrades");
 
 // Three.js Core
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
@@ -65,6 +68,8 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x89b6b5);
 scene.fog = new THREE.FogExp2(0x8fb5ac, 0.012);
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 240);
+scene.add(camera);
+
 const keys = new Set();
 const mouse = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
@@ -94,7 +99,7 @@ function playSound(type) {
 
     if (type === "shoot") {
       osc.type = "sine";
-      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.setValueAtTime(900, now);
       osc.frequency.exponentialRampToValueAtTime(220, now + 0.18);
       gain.gain.setValueAtTime(0.28, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
@@ -102,16 +107,16 @@ function playSound(type) {
       osc.stop(now + 0.18);
     } else if (type === "shockwave") {
       osc.type = "triangle";
-      osc.frequency.setValueAtTime(300, now);
-      osc.frequency.exponentialRampToValueAtTime(60, now + 0.35);
-      gain.gain.setValueAtTime(0.4, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+      osc.frequency.setValueAtTime(280, now);
+      osc.frequency.exponentialRampToValueAtTime(50, now + 0.4);
+      gain.gain.setValueAtTime(0.45, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
       osc.start(now);
-      osc.stop(now + 0.35);
+      osc.stop(now + 0.4);
     } else if (type === "drone") {
       osc.type = "triangle";
       osc.frequency.setValueAtTime(1400, now);
-      osc.frequency.setValueAtTime(1800, now + 0.05);
+      osc.frequency.setValueAtTime(1900, now + 0.05);
       gain.gain.setValueAtTime(0.12, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
       osc.start(now);
@@ -173,10 +178,18 @@ function vibrate(ms = 25) {
   }
 }
 
+// Camera Modes & FPS Viewmodel
+let cameraMode = "fps"; // Default to First Person view as requested!
+let cameraYaw = 0;
+let cameraPitch = 0;
+let walkBob = 0;
+let isSprinting = false;
+let fpsViewModel = null;
+
 // Upgrades & Player State
 const upgrades = {
   bow: 1,    // 1: Base (25 dmg), 2: Cadencia Rápida (40 dmg), 3: Flecha Triple
-  drone: 1,  // 1: Pulso, 2: Láser de Plasma (30 dmg), 3: Escudo Deflector
+  drone: 1,  // 1: Pulso, 2: Láser de Plasma (35 dmg), 3: Escudo Deflector
   armor: 1,  // 1: Base (100 hp), 2: Placas Reforzadas (150 hp), 3: Paso Ancestral (200 hp, vel +30%)
 };
 
@@ -195,6 +208,7 @@ const player = {
   maxHealth: 100,
   energy: 100,
   speed: 9.5,
+  velocity: new THREE.Vector3(),
   invulnerable: 0,
   shootCooldown: 0,
   specialCooldown: 0,
@@ -202,7 +216,7 @@ const player = {
   enemiesDefeated: 0,
 };
 
-let currentLevel = 1; // 1: El Despertar, 2: La Grieta Sombría, 3: El Titán
+let currentLevel = 1;
 let levelBoss = null;
 let bolts = [];
 let particles = [];
@@ -215,7 +229,12 @@ let gameOver = false;
 let elapsed = 0;
 let lastFrameTime = performance.now();
 
-// Touch Joystick State
+// Drone Guardian Companion State
+let droneAutoShootTimer = 0;
+let droneCurrentTarget = null;
+let droneScanAngle = 0;
+
+// Touch Controls State
 const joystick = {
   active: false,
   identifier: null,
@@ -223,6 +242,8 @@ const joystick = {
   current: { x: 0, y: 0 },
   vector: new THREE.Vector2(0, 0),
 };
+let touchLookId = null;
+let prevTouchLook = { x: 0, y: 0 };
 
 // Inspector Mode State
 let inspectMode = false;
@@ -254,7 +275,6 @@ function showToast(text) {
   missionToast.textContent = text;
   missionToast.classList.remove("hidden");
   missionToast.style.animation = "none";
-  // Trigger reflow
   void missionToast.offsetWidth;
   missionToast.style.animation = "toastFade 2.8s ease forwards";
 }
@@ -389,25 +409,29 @@ function initPlayer() {
 
   player.group = heroine.root;
   player.heroine = heroine;
+
+  // Create First-Person ViewModel attached directly to Camera
+  const pMats = createProtagonistMaterials();
+  fpsViewModel = createFPSViewModel(pMats);
+  camera.add(fpsViewModel.fpsRig);
+
   applyPlayerUpgrades();
 }
 
 function applyPlayerUpgrades() {
-  // Armor Level Upgrades
   if (upgrades.armor === 1) {
     player.maxHealth = 100;
     player.speed = 9.5;
   } else if (upgrades.armor === 2) {
     player.maxHealth = 150;
-    player.speed = 10.5;
+    player.speed = 10.8;
   } else if (upgrades.armor === 3) {
     player.maxHealth = 200;
-    player.speed = 12.0;
+    player.speed = 12.2;
   }
   healthMeter.max = player.maxHealth;
   player.health = Math.min(player.health, player.maxHealth);
 
-  // Apply visual model updates
   player.heroine.applyUpgrades({
     bowLevel: upgrades.bow,
     droneLevel: upgrades.drone,
@@ -431,13 +455,11 @@ function createCrystal(x, z) {
   crystals.push({ group, gem, light, active: false });
 }
 
-// Setup Level Mission Configurations
 function loadLevel(levelNum) {
   currentLevel = levelNum;
   levelCleared = false;
   levelBanner.classList.add("hidden");
 
-  // Clear existing enemies, crystals, bolts
   enemies.forEach((e) => scene.remove(e.group));
   crystals.forEach((c) => scene.remove(c.group));
   bolts.forEach((b) => scene.remove(b.mesh));
@@ -451,7 +473,7 @@ function loadLevel(levelNum) {
   portalCore.material.opacity = 0.28;
 
   if (currentLevel === 1) {
-    levelTitle.textContent = "NIVEL 1 · EL DESPERTAR";
+    levelTitle.textContent = "NIVEL 1";
     scene.background.set(0x89b6b5);
     scene.fog.color.set(0x8fb5ac);
 
@@ -463,7 +485,7 @@ function loadLevel(levelNum) {
     enemies = configs.map(([x, z], i) => spawnGuardian(x, z, 45, 2.2 + (i % 3) * 0.35, 1.0));
     showToast("✨ Misión: Sintoniza los 3 cristales ancestrales");
   } else if (currentLevel === 2) {
-    levelTitle.textContent = "NIVEL 2 · LA GRIETA SOMBRÍA";
+    levelTitle.textContent = "NIVEL 2";
     scene.background.set(0x453158);
     scene.fog.color.set(0x382647);
 
@@ -476,30 +498,28 @@ function loadLevel(levelNum) {
       [-20, 5], [-12, -12], [-4, 8], [8, -8],
       [16, 6], [22, -14], [28, 12], [2, 22], [-18, 22]
     ];
-    enemies = configs.map(([x, z], i) => spawnGuardian(x, z, 60, 3.2 + (i % 3) * 0.4, 1.1, true));
+    enemies = configs.map(([x, z], i) => spawnGuardian(x, z, 65, 3.2 + (i % 3) * 0.4, 1.1, true));
     showToast("⚡ Misión: Sintoniza los 4 monolitos sombríos");
   } else if (currentLevel === 3) {
-    levelTitle.textContent = "NIVEL 3 · EL TITÁN ANCESTRAL";
+    levelTitle.textContent = "NIVEL 3";
     scene.background.set(0x281a36);
     scene.fog.color.set(0x1e122b);
 
     createCrystal(-15, 0);
     createCrystal(15, 0);
 
-    // Spawn Boss Guardian Titan
     spawnTitanBoss(18, -12);
-
-    // Minion escorts
     enemies.push(spawnGuardian(-10, 14, 50, 2.8, 1.0));
     enemies.push(spawnGuardian(10, 14, 50, 2.8, 1.0));
 
     bossHud.classList.remove("hidden");
     bossHealthFill.style.width = "100%";
-    showToast("⚔️ ¡Derrota al Titán Ancestral Corrupto!");
+    showToast("👑 ¡Derrota al Titán Ancestral Corrupto!");
   }
 
   player.health = player.maxHealth;
   player.group.position.set(-31, 0, 18);
+  player.velocity.set(0, 0, 0);
 }
 
 function spawnGuardian(x, z, health = 45, speed = 2.4, scale = 1.0, isElite = false) {
@@ -551,45 +571,37 @@ function spawnTitanBoss(x, z) {
   enemies.push(levelBoss);
 }
 
-// Combat & Shooting
+// Combat: Shooting & Weapon Handling
 function shoot() {
   if (inspectMode || isLeaderboardOpen || isUpgradeOpen || player.energy < 12 || player.shootCooldown > 0 || gameOver || gameFinished) return;
   initAudio();
-  vibrate(20);
+  vibrate(25);
 
   const cooldownRate = upgrades.bow === 1 ? 0.24 : upgrades.bow === 2 ? 0.16 : 0.12;
   player.energy -= 12;
   player.shootCooldown = cooldownRate;
-  player.heroine.playShootAnim();
   playSound("shoot");
 
-  const origin = player.group.position.clone().add(new THREE.Vector3(0, 1.5, 0));
-  let direction = aimPoint.clone().sub(player.group.position);
-  direction.y = 0;
+  let direction = new THREE.Vector3();
+  let origin = new THREE.Vector3();
 
-  // Auto-aim for mobile if mouse/touch aim isn't explicitly pointing
-  if (joystick.active && enemies.length > 0) {
-    let closestEnemy = null;
-    let closestDist = 28;
-    enemies.forEach((en) => {
-      const d = en.group.position.distanceTo(player.group.position);
-      if (d < closestDist) {
-        closestDist = d;
-        closestEnemy = en;
-      }
-    });
-    if (closestEnemy) {
-      direction = closestEnemy.group.position.clone().sub(player.group.position);
-      direction.y = 0;
-    }
+  if (cameraMode === "fps") {
+    // In First Person, shoots straight where camera is looking
+    camera.getWorldDirection(direction);
+    origin.copy(camera.position).addScaledVector(direction, 0.6);
+    fpsViewModel.playShoot();
+  } else {
+    // In Third Person, shoots from hero towards aim point
+    origin.copy(player.group.position).add(new THREE.Vector3(0, 1.5, 0));
+    direction.copy(aimPoint).sub(player.group.position);
+    direction.y = 0;
+    if (direction.lengthSq() < 0.01) direction.set(0, 0, -1);
+    direction.normalize();
+    player.heroine.playShootAnim();
   }
-
-  if (direction.lengthSq() < 0.01) direction.set(0, 0, -1);
-  direction.normalize();
 
   const arrowDamage = upgrades.bow === 1 ? 25 : upgrades.bow === 2 ? 40 : 55;
 
-  // Primary Arrow(s)
   const fireBolt = (dirOffset = 0) => {
     const boltMesh = new THREE.Group();
     const arrowCore = mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.4, 6), mats.cyan, false);
@@ -602,69 +614,50 @@ function shoot() {
     boltMesh.add(headGlow);
 
     const finalDir = direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), dirOffset);
-    boltMesh.position.copy(origin).addScaledVector(finalDir, 1.2);
+    boltMesh.position.copy(origin).addScaledVector(finalDir, 0.8);
     boltMesh.lookAt(boltMesh.position.clone().add(finalDir));
     scene.add(boltMesh);
-    bolts.push({ mesh: boltMesh, velocity: finalDir.multiplyScalar(30), damage: arrowDamage, life: 1.6 });
+    bolts.push({ mesh: boltMesh, velocity: finalDir.multiplyScalar(32), damage: arrowDamage, life: 1.6 });
   };
 
   fireBolt(0);
   if (upgrades.bow >= 3) {
-    // Triple Arrow spread
-    fireBolt(0.16);
-    fireBolt(-0.16);
+    fireBolt(0.15);
+    fireBolt(-0.15);
   }
-
-  // Companion Drone Synchronized Fire
-  setTimeout(() => {
-    if (gameOver || gameFinished || inspectMode) return;
-    playSound("drone");
-    const dronePos = new THREE.Vector3();
-    player.heroine.drone.getWorldPosition(dronePos);
-
-    const droneBolt = mesh(new THREE.SphereGeometry(0.14, 6, 6), mats.cyan, false);
-    droneBolt.scale.set(1, 1, 2.2);
-    droneBolt.position.copy(dronePos);
-    droneBolt.lookAt(dronePos.clone().add(direction));
-    scene.add(droneBolt);
-
-    const droneDamage = upgrades.drone === 1 ? 16 : upgrades.drone === 2 ? 32 : 45;
-    bolts.push({ mesh: droneBolt, velocity: direction.clone().multiplyScalar(34), damage: droneDamage, life: 1.4 });
-    burst(dronePos, 0x5ef4ff, 5);
-  }, 60);
 }
 
-// Drone Special Shockwave Ability
+// Special Ability: Companion Guardian Shockwave / EMP
 function triggerDroneShockwave() {
-  if (inspectMode || player.energy < 35 || player.specialCooldown > 0 || gameOver || gameFinished) return;
+  if (inspectMode || player.energy < 32 || player.specialCooldown > 0 || gameOver || gameFinished) return;
   initAudio();
-  vibrate(40);
-  player.energy -= 35;
-  player.specialCooldown = 4.0;
+  vibrate(50);
+  player.energy -= 32;
+  player.specialCooldown = 3.5;
   playSound("shockwave");
 
   const center = player.group.position.clone();
-  burst(center, 0x5df8ff, 32);
+  burst(center, 0x5df8ff, 36);
 
-  // Shockwave ring expansion
-  const shockRing = mesh(new THREE.RingGeometry(0.5, 1.2, 32), mats.cyan, false);
+  showToast("💥 ¡Onda EMP del Guardián activada!");
+
+  // Expand shockwave ring
+  const shockRing = mesh(new THREE.RingGeometry(0.6, 1.4, 32), mats.cyan, false);
   shockRing.rotation.x = Math.PI / 2;
   shockRing.position.copy(center).add(new THREE.Vector3(0, 0.4, 0));
   scene.add(shockRing);
 
-  // Push back and damage all nearby enemies
   enemies.forEach((enemy) => {
     const dist = enemy.group.position.distanceTo(center);
-    if (dist < 14) {
+    if (dist < 16) {
       const pushDir = enemy.group.position.clone().sub(center).normalize();
-      enemy.group.position.addScaledVector(pushDir, 4.5);
-      enemy.health -= 45;
-      burst(enemy.group.position, 0x5ef4ff, 12);
+      enemy.group.position.addScaledVector(pushDir, 5.0);
+      enemy.health -= 50;
+      burst(enemy.group.position, 0x5df8ff, 12);
       if (enemy.health <= 0) destroyEnemy(enemy);
     }
   });
 
-  // Animate ring
   let radius = 1;
   const ringAnim = setInterval(() => {
     radius += 0.9;
@@ -686,7 +679,7 @@ function destroyEnemy(enemy) {
     enemies.splice(idx, 1);
     player.enemiesDefeated += 1;
     addEssence(25);
-    showToast("+25 💎 Esencia Rúnica");
+    showToast("+25 💎 Esencia Ancestral");
   }
 }
 
@@ -704,8 +697,94 @@ function burst(position, color = 0x73eff7, count = 8) {
   }
 }
 
+// Smart Companion Guardian AI (Autonomous Defense & Scanner)
+function updateCompanionGuardian(dt) {
+  const drone = player.heroine.drone;
+  if (!drone) return;
+
+  // 1. Autonomous Target Acquisition: find closest enemy
+  let closestTarget = null;
+  let closestDist = 24;
+  enemies.forEach((enemy) => {
+    const d = enemy.group.position.distanceTo(player.group.position);
+    if (d < closestDist) {
+      closestDist = d;
+      closestTarget = enemy;
+    }
+  });
+
+  droneCurrentTarget = closestTarget;
+
+  if (closestTarget) {
+    const enemyPos = closestTarget.group.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+    drone.userData.spotTarget.position.copy(enemyPos);
+
+    // Turn drone targeting laser on
+    if (drone.userData.laser) {
+      drone.userData.laser.material.opacity = 0.85;
+      const pts = [
+        new THREE.Vector3(0, 0, 0.35),
+        drone.worldToLocal(enemyPos.clone())
+      ];
+      drone.userData.laser.geometry.setFromPoints(pts);
+    }
+
+    // Autonomous Plasma Darts
+    droneAutoShootTimer -= dt;
+    const fireInterval = upgrades.drone === 1 ? 1.4 : upgrades.drone === 2 ? 0.9 : 0.55;
+    if (droneAutoShootTimer <= 0 && !gameOver && !gameFinished && !inspectMode) {
+      droneAutoShootTimer = fireInterval;
+      playSound("drone");
+      const droneWorldPos = new THREE.Vector3();
+      drone.getWorldPosition(droneWorldPos);
+      const toEnemy = enemyPos.clone().sub(droneWorldPos).normalize();
+
+      const droneBolt = mesh(new THREE.SphereGeometry(0.16, 6, 6), mats.cyan, false);
+      droneBolt.scale.set(1, 1, 2.4);
+      droneBolt.position.copy(droneWorldPos);
+      droneBolt.lookAt(droneWorldPos.clone().add(toEnemy));
+      scene.add(droneBolt);
+
+      const droneDamage = upgrades.drone === 1 ? 18 : upgrades.drone === 2 ? 35 : 50;
+      bolts.push({ mesh: droneBolt, velocity: toEnemy.multiplyScalar(36), damage: droneDamage, life: 1.2 });
+      burst(droneWorldPos, 0x5ef4ff, 4);
+    }
+  } else {
+    // Idle Scanner Spotlight sweep
+    if (drone.userData.laser) drone.userData.laser.material.opacity = 0;
+    droneScanAngle += dt * 1.5;
+    const sweepX = Math.sin(droneScanAngle) * 7;
+    drone.userData.spotTarget.position.set(sweepX, 0, 14);
+  }
+
+  // Shield Bubble positioning & rotation
+  if (drone.userData.shieldBubble) {
+    drone.userData.shieldBubble.visible = player.shieldActive;
+    if (player.shieldActive) {
+      drone.userData.shieldBubble.rotation.y += dt * 2.2;
+      drone.userData.shieldBubble.rotation.x += dt * 1.2;
+    }
+  }
+
+  // Positioning in First Person Mode
+  if (cameraMode === "fps" && !inspectMode) {
+    const camDir = new THREE.Vector3();
+    camera.getWorldDirection(camDir);
+    camDir.y = 0;
+    camDir.normalize();
+    const right = new THREE.Vector3(-camDir.z, 0, camDir.x);
+
+    const targetPos = camera.position.clone()
+      .addScaledVector(camDir, 1.4)
+      .addScaledVector(right, 1.1)
+      .add(new THREE.Vector3(0, Math.sin(elapsed * 2.8) * 0.1 - 0.25, 0));
+
+    drone.position.copy(player.group.worldToLocal(targetPos));
+  }
+}
+
 function updateAim() {
-  if (inspectMode) return;
+  if (inspectMode || cameraMode === "fps") return;
   raycaster.setFromCamera(mouse, camera);
   raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), aimPoint);
   const direction = aimPoint.clone().sub(player.group.position);
@@ -715,43 +794,83 @@ function updateAim() {
   }
 }
 
+// Fluid Movement Physics with Acceleration & Friction
 function updatePlayer(dt) {
+  const currentSpeed = player.speed * (isSprinting ? 1.45 : 1.0);
   const move = new THREE.Vector3();
 
-  // Keyboard input
-  if (keys.has("w") || keys.has("arrowup")) move.z -= 1;
-  if (keys.has("s") || keys.has("arrowdown")) move.z += 1;
-  if (keys.has("a") || keys.has("arrowleft")) move.x -= 1;
-  if (keys.has("d") || keys.has("arrowright")) move.x += 1;
+  if (cameraMode === "fps") {
+    // Movement relative to camera view angle (FPS strafing and forward/back)
+    const forward = new THREE.Vector3(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
+    const right = new THREE.Vector3(-forward.z, 0, forward.x);
 
-  // Touch Virtual Joystick input
-  if (joystick.active && joystick.vector.lengthSq() > 0.04) {
-    move.x += joystick.vector.x;
-    move.z += joystick.vector.y;
+    if (keys.has("w") || keys.has("arrowup")) move.add(forward);
+    if (keys.has("s") || keys.has("arrowdown")) move.sub(forward);
+    if (keys.has("a") || keys.has("arrowleft")) move.sub(right);
+    if (keys.has("d") || keys.has("arrowright")) move.add(right);
+
+    if (joystick.active && joystick.vector.lengthSq() > 0.04) {
+      move.addScaledVector(forward, -joystick.vector.y);
+      move.addScaledVector(right, joystick.vector.x);
+    }
+  } else {
+    // Isometric third person movement
+    if (keys.has("w") || keys.has("arrowup")) move.z -= 1;
+    if (keys.has("s") || keys.has("arrowdown")) move.z += 1;
+    if (keys.has("a") || keys.has("arrowleft")) move.x -= 1;
+    if (keys.has("d") || keys.has("arrowright")) move.x += 1;
+
+    if (joystick.active && joystick.vector.lengthSq() > 0.04) {
+      move.x += joystick.vector.x;
+      move.z += joystick.vector.y;
+    }
   }
 
-  const moving = move.lengthSq() > 0;
-  if (moving) {
-    player.group.position.add(move.normalize().multiplyScalar(player.speed * dt));
-  }
+  const isMoving = move.lengthSq() > 0.01;
+  if (isMoving) move.normalize();
+
+  // Smooth acceleration and deceleration
+  const targetVelocity = move.multiplyScalar(isMoving ? currentSpeed : 0);
+  player.velocity.lerp(targetVelocity, 1 - Math.exp(-14 * dt));
+  player.group.position.addScaledVector(player.velocity, dt);
+
   player.group.position.x = THREE.MathUtils.clamp(player.group.position.x, -39, 39);
   player.group.position.z = THREE.MathUtils.clamp(player.group.position.z, -29, 29);
 
-  // Energy & Cooldown Regen
+  // Head bobbing calculation for FPS
+  if (isMoving) {
+    walkBob += dt * (isSprinting ? 14 : 10);
+  }
+
+  // Energy & Cooldowns
   const energyRegen = upgrades.armor >= 2 ? 30 : 20;
   player.energy = Math.min(100, player.energy + energyRegen * dt);
-  player.invulnerable = Math.max(0, player.invulnerable - dt);
   player.shootCooldown = Math.max(0, player.shootCooldown - dt);
   player.specialCooldown = Math.max(0, player.specialCooldown - dt);
+  player.invulnerable = Math.max(0, player.invulnerable - dt);
 
-  updateAim();
-  player.heroine.update(dt, moving, move, true, aimPoint);
+  // Switch display between FPS and TPP
+  if (cameraMode === "fps") {
+    player.heroine.hips.visible = false;
+    player.heroine.arcoDeLuz.visible = false;
+    fpsViewModel.fpsRig.visible = !inspectMode;
+    fpsViewModel.update(dt, isMoving, isSprinting ? 1.4 : 1.0);
+    player.group.rotation.y = cameraYaw;
+  } else {
+    player.heroine.hips.visible = true;
+    player.heroine.arcoDeLuz.visible = true;
+    fpsViewModel.fpsRig.visible = false;
+    updateAim();
+    player.heroine.update(dt, isMoving, move, true, aimPoint, isSprinting ? 1.4 : 1.0);
+  }
+
+  updateCompanionGuardian(dt);
 }
 
 function updateCrystals(dt) {
-  crystals.forEach((crystal, index) => {
+  crystals.forEach((crystal) => {
     crystal.gem.rotation.y += dt * (crystal.active ? 1.9 : 0.7);
-    crystal.gem.position.y = 2 + Math.sin(elapsed * 2.4 + index) * 0.22;
+    crystal.gem.position.y = 2 + Math.sin(elapsed * 2.4) * 0.22;
     if (!crystal.active && crystal.group.position.distanceTo(player.group.position) < 3.3) {
       crystal.active = true;
       crystal.gem.material = mats.cyan;
@@ -780,13 +899,12 @@ function updateEnemies(dt) {
 
     // Contact attack on player
     if (distance < 1.8 && player.invulnerable <= 0) {
-      // If drone shield active, absorb hit
       if (upgrades.drone >= 3 && !player.shieldActive) {
         player.shieldActive = true;
-        showToast("🛡️ ¡El Dron absorbió el ataque!");
-        burst(player.group.position, 0x5df8ff, 15);
-        player.invulnerable = 1.0;
-        setTimeout(() => { player.shieldActive = false; }, 12000);
+        showToast("🛡️ ¡El Guardián desplegó su Escudo Deflector!");
+        burst(player.group.position, 0x5df8ff, 18);
+        player.invulnerable = 1.2;
+        setTimeout(() => { player.shieldActive = false; }, 10000);
         return;
       }
 
@@ -801,7 +919,6 @@ function updateEnemies(dt) {
     }
   });
 
-  // Update Boss Health Bar
   if (levelBoss) {
     const pct = Math.max(0, (levelBoss.health / levelBoss.maxHealth) * 100);
     bossHealthFill.style.width = `${pct}%`;
@@ -885,7 +1002,17 @@ function updateCamera(dt) {
 
     camera.position.lerp(targetPos, 1 - Math.pow(0.001, dt));
     camera.lookAt(lookTarget);
+  } else if (cameraMode === "fps") {
+    // First-Person Mode: eye level + realistic head bobbing
+    const bob = Math.sin(walkBob) * (player.velocity.length() > 0.5 ? 0.05 : 0.008);
+    const eyePos = player.group.position.clone().add(new THREE.Vector3(0, 2.3 + bob, 0));
+    camera.position.copy(eyePos);
+
+    camera.rotation.order = "YXZ";
+    camera.rotation.y = cameraYaw;
+    camera.rotation.x = cameraPitch;
   } else {
+    // Third-Person Mode: isometric chase view
     const isPortrait = camera.aspect < 1;
     const camOffset = isPortrait ? new THREE.Vector3(14, 26, 26) : new THREE.Vector3(12, 18, 18);
     const desired = player.group.position.clone().add(camOffset);
@@ -901,42 +1028,47 @@ function updateHud() {
 
   if (gameOver) {
     objectiveText.textContent = "La corrupción te alcanzó";
-    message.innerHTML = "Has caído en batalla<small>Toca Reiniciar o pulsa R</small>";
+    message.innerHTML = "Has caído en batalla<small>Pulsa R para volver a intentarlo</small>";
   } else if (gameFinished) {
     objectiveText.textContent = "¡EL REINO DEL ALBA HA SIDO SALVADO!";
     message.innerHTML = "¡Victoria Legendaria!<small>Récord registrado en la Base de Datos</small>";
   } else {
     if (currentLevel === 1) {
-      objectiveText.textContent = `Activa los 3 cristales (${activeCrystals}/3)`;
-      subObjectiveText.textContent = `Secundaria: Guardianes purificados (${player.enemiesDefeated}/6)`;
+      objectiveText.textContent = `Cristales (${activeCrystals}/3) · Guardianes (${player.enemiesDefeated}/6)`;
+      subObjectiveText.textContent = `Secundaria: Purifica a los guardianes`;
     } else if (currentLevel === 2) {
-      objectiveText.textContent = `Sintoniza los 4 monolitos sombríos (${activeCrystals}/4)`;
+      objectiveText.textContent = `Monolitos sombríos (${activeCrystals}/4)`;
       subObjectiveText.textContent = `Secundaria: Enemigos restantes: ${enemies.length}`;
     } else if (currentLevel === 3) {
       objectiveText.textContent = `¡Derrota al Titán Ancestral!`;
-      subObjectiveText.textContent = `Cristales de soporte (${activeCrystals}/2)`;
+      subObjectiveText.textContent = `Cristales de apoyo (${activeCrystals}/2)`;
     }
   }
 }
 
-// Upgrade UI Logic
+function toggleCameraMode() {
+  cameraMode = cameraMode === "fps" ? "tpp" : "fps";
+  if (camToggleText) {
+    camToggleText.textContent = cameraMode === "fps" ? "1ra Persona" : "3ra Persona";
+  }
+  showToast(cameraMode === "fps" ? "🎥 Vista: Primera Persona (FPS)" : "🎥 Vista: Tercera Persona (Isométrica)");
+  resizeGame();
+}
+
 function updateUpgradeUI() {
   modalEssenceCount.textContent = playerEssence;
   essenceCountText.textContent = playerEssence;
 
-  // Bow
   const bowCost = upgradeCosts.bow[upgrades.bow] || 0;
   btnUpgradeBow.disabled = upgrades.bow >= 3 || playerEssence < bowCost;
   btnUpgradeBow.innerHTML = upgrades.bow >= 3 ? "NIVEL MÁXIMO" : `Mejorar <span class="cost-tag">${bowCost} 💎</span>`;
   document.querySelectorAll("#bow-dots .dot").forEach((d, i) => d.classList.toggle("active", i < upgrades.bow));
 
-  // Drone
   const droneCost = upgradeCosts.drone[upgrades.drone] || 0;
   btnUpgradeDrone.disabled = upgrades.drone >= 3 || playerEssence < droneCost;
   btnUpgradeDrone.innerHTML = upgrades.drone >= 3 ? "NIVEL MÁXIMO" : `Mejorar <span class="cost-tag">${droneCost} 💎</span>`;
   document.querySelectorAll("#drone-dots .dot").forEach((d, i) => d.classList.toggle("active", i < upgrades.drone));
 
-  // Armor
   const armorCost = upgradeCosts.armor[upgrades.armor] || 0;
   btnUpgradeArmor.disabled = upgrades.armor >= 3 || playerEssence < armorCost;
   btnUpgradeArmor.innerHTML = upgrades.armor >= 3 ? "NIVEL MÁXIMO" : `Mejorar <span class="cost-tag">${armorCost} 💎</span>`;
@@ -958,7 +1090,6 @@ function buyUpgrade(tree) {
   }
 }
 
-// Level Progression
 function checkLevelCompletion() {
   if (levelCleared || gameOver || gameFinished) return;
 
@@ -1069,7 +1200,6 @@ scoreForm.addEventListener("submit", async (e) => {
 btnLeaderboard.addEventListener("click", () => openLeaderboard(false));
 btnCloseLeaderboard.addEventListener("click", closeLeaderboard);
 
-// Modals Listeners
 btnUpgradeOpen.addEventListener("click", () => {
   isUpgradeOpen = true;
   updateUpgradeUI();
@@ -1083,12 +1213,11 @@ btnUpgradeBow.addEventListener("click", () => buyUpgrade("bow"));
 btnUpgradeDrone.addEventListener("click", () => buyUpgrade("drone"));
 btnUpgradeArmor.addEventListener("click", () => buyUpgrade("armor"));
 
-// Mobile Touch Virtual Joystick & Tap to Shoot
+// Mobile Touch Virtual Joystick & Tap to Aim / Look
 function handleTouchStart(e) {
   initAudio();
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
-    // Left 44% of screen controls movement joystick
     if (t.clientX < window.innerWidth * 0.44) {
       if (!joystick.active) {
         joystick.active = true;
@@ -1098,13 +1227,17 @@ function handleTouchStart(e) {
         updateJoystick(t.clientX, t.clientY);
       }
     } else {
-      // Right side of screen: tap to aim and shoot (if not clicking UI buttons/modals)
       if (!inspectMode && !isLeaderboardOpen && !isUpgradeOpen) {
         const target = e.target;
         if (!target.closest("button") && !target.closest("input") && !target.closest(".modal-box")) {
-          mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
-          mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
-          shoot();
+          touchLookId = t.identifier;
+          prevTouchLook = { x: t.clientX, y: t.clientY };
+          // If in TPP, shoot toward tap point
+          if (cameraMode === "tpp") {
+            mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
+            shoot();
+          }
         }
       }
     }
@@ -1112,25 +1245,33 @@ function handleTouchStart(e) {
 }
 
 function handleTouchMove(e) {
-  if (!joystick.active) return;
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
-    if (t.identifier === joystick.identifier) {
+    if (joystick.active && t.identifier === joystick.identifier) {
       updateJoystick(t.clientX, t.clientY);
-      break;
+    }
+    // Rotate look angle in FPS mode on touch drag
+    if (cameraMode === "fps" && t.identifier === touchLookId) {
+      const dx = t.clientX - prevTouchLook.x;
+      const dy = t.clientY - prevTouchLook.y;
+      cameraYaw -= dx * 0.005;
+      cameraPitch = THREE.MathUtils.clamp(cameraPitch - dy * 0.004, -1.2, 1.2);
+      prevTouchLook = { x: t.clientX, y: t.clientY };
     }
   }
 }
 
 function handleTouchEnd(e) {
-  if (!joystick.active) return;
   for (let i = 0; i < e.changedTouches.length; i++) {
-    if (e.changedTouches[i].identifier === joystick.identifier) {
+    const t = e.changedTouches[i];
+    if (joystick.active && t.identifier === joystick.identifier) {
       joystick.active = false;
       joystick.identifier = null;
       joystick.vector.set(0, 0);
       joystickThumb.style.transform = `translate(0px, 0px)`;
-      break;
+    }
+    if (t.identifier === touchLookId) {
+      touchLookId = null;
     }
   }
 }
@@ -1155,16 +1296,18 @@ window.addEventListener("touchmove", handleTouchMove, { passive: false });
 window.addEventListener("touchend", handleTouchEnd, { passive: false });
 window.addEventListener("touchcancel", handleTouchEnd, { passive: false });
 
-// Mobile Touch Action Buttons
+// Action Buttons
 btnTouchShoot.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); shoot(); });
 btnTouchShoot.addEventListener("pointerdown", (e) => { e.stopPropagation(); shoot(); });
 btnTouchSpecial.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); triggerDroneShockwave(); });
 btnTouchSpecial.addEventListener("pointerdown", (e) => { e.stopPropagation(); triggerDroneShockwave(); });
-btnTouchUpgrades.addEventListener("click", () => {
-  isUpgradeOpen = true;
-  updateUpgradeUI();
-  upgradeModal.classList.remove("hidden");
+btnTouchCam.addEventListener("click", () => toggleCameraMode());
+btnTouchDash.addEventListener("click", () => {
+  isSprinting = !isSprinting;
+  showToast(isSprinting ? "💨 ¡Sprint Activado!" : "Modo Normal");
 });
+
+btnCamToggle.addEventListener("click", toggleCameraMode);
 
 function resetGame() {
   elapsed = 0;
@@ -1192,24 +1335,39 @@ function setInspectMode(active) {
   }
 }
 
-// Window & Input Listeners (Adaptive Scaling for Mobile & Desktop)
 function resizeGame() {
   const width = window.innerWidth;
   const height = window.innerHeight;
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
-  // Adaptive FOV for vertical smartphone screens
-  camera.fov = camera.aspect < 1 ? 68 : 50;
+  camera.fov = cameraMode === "fps" ? 65 : (camera.aspect < 1 ? 68 : 50);
   camera.updateProjectionMatrix();
 }
 
 window.addEventListener("resize", resizeGame);
 window.addEventListener("orientationchange", () => setTimeout(resizeGame, 100));
 
+// Desktop Controls & Pointer Lock
+canvas.addEventListener("click", () => {
+  if (cameraMode === "fps" && !inspectMode && !isLeaderboardOpen && !isUpgradeOpen) {
+    try { canvas.requestPointerLock(); } catch (e) {}
+  }
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (document.pointerLockElement === canvas && cameraMode === "fps" && !inspectMode) {
+    cameraYaw -= e.movementX * 0.0024;
+    cameraPitch = THREE.MathUtils.clamp(cameraPitch - e.movementY * 0.0022, -1.25, 1.25);
+  }
+});
+
 window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   keys.add(k);
   if (e.key === " " && !inspectMode) { e.preventDefault(); shoot(); }
+  if (e.key === "Shift") isSprinting = true;
+  if (k === "q") triggerDroneShockwave();
+  if (k === "c") toggleCameraMode();
   if (k === "r") resetGame();
   if (k === "v") setInspectMode(!inspectMode);
   if (k === "u") {
@@ -1225,7 +1383,10 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-window.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+window.addEventListener("keyup", (e) => {
+  keys.delete(e.key.toLowerCase());
+  if (e.key === "Shift") isSprinting = false;
+});
 
 canvas.addEventListener("pointermove", (e) => {
   if (inspectMode && isDragging) {
@@ -1235,7 +1396,7 @@ canvas.addEventListener("pointermove", (e) => {
     orbitAngles.phi = THREE.MathUtils.clamp(orbitAngles.phi + deltaY * 0.008, -0.4, 1.2);
     prevMousePos = { x: e.clientX, y: e.clientY };
     currentView = "orbit";
-  } else {
+  } else if (cameraMode === "tpp") {
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
   }
@@ -1300,5 +1461,5 @@ createWorld();
 initPlayer();
 loadLevel(1);
 resizeGame();
-camera.position.set(-19, 18, 36);
+camera.position.set(-31, 2.3, 18);
 animate();

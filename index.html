@@ -47,6 +47,14 @@
           <div class="essence-badge" title="Esencia Ancestral para mejoras">
             💎 <span id="essence-count">0</span>
           </div>
+          <button id="btn-cam-toggle" class="hud-btn" title="Alternar Vista 1ra / 3ra Persona (Tecla C)">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <span class="btn-text" id="cam-toggle-text">1ra Persona</span>
+            <kbd class="kbd-hint">C</kbd>
+          </button>
           <button id="btn-upgrade-open" class="hud-btn" title="Mejoras de Avatar (Tecla U)">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
@@ -108,11 +116,15 @@
 
         <!-- Botones de Acción Táctiles (Derecha) -->
         <div class="touch-actions">
-          <button id="btn-touch-upgrades" class="touch-btn touch-btn-sub" aria-label="Mejoras">
-            ⚡
-            <span>Mejoras</span>
+          <button id="btn-touch-cam" class="touch-btn touch-btn-sub" aria-label="Cambiar Cámara">
+            🎥
+            <span>Vista</span>
           </button>
-          <button id="btn-touch-special" class="touch-btn touch-btn-special" aria-label="Sobrecarga Dron">
+          <button id="btn-touch-dash" class="touch-btn touch-btn-sub" aria-label="Sprint">
+            💨
+            <span>Sprint</span>
+          </button>
+          <button id="btn-touch-special" class="touch-btn touch-btn-special" aria-label="Sobrecarga Guardián">
             💥
             <span>Onda</span>
           </button>

@@ -316,15 +316,34 @@ export function buildCompanionDrone(mats) {
   drone.add(finsGroup);
   drone.userData.finsGroup = finsGroup;
 
-  // Drone Protective Shield Ring (Unlocked on Upgrade)
-  const shieldRing = new THREE.Mesh(
-    new THREE.TorusGeometry(0.58, 0.02, 8, 28),
-    new THREE.MeshBasicMaterial({ color: 0x5df8ff, transparent: true, opacity: 0.6 })
+  // Targeting laser beam
+  const laserGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0.35),
+    new THREE.Vector3(0, 0, 8.0),
+  ]);
+  const laserMat = new THREE.LineBasicMaterial({ color: 0x5df8ff, transparent: true, opacity: 0 });
+  const laser = new THREE.Line(laserGeo, laserMat);
+  drone.add(laser);
+  drone.userData.laser = laser;
+
+  // Scanning Spotlight (sweeps the fog and illuminates targets)
+  const spotLight = new THREE.SpotLight(0x5df8ff, 3.8, 30, Math.PI / 6, 0.35);
+  spotLight.position.set(0, 0, 0.35);
+  const spotTarget = new THREE.Object3D();
+  spotTarget.position.set(0, 0, 10);
+  drone.add(spotLight);
+  drone.add(spotTarget);
+  spotLight.target = spotTarget;
+  drone.userData.spotLight = spotLight;
+  drone.userData.spotTarget = spotTarget;
+
+  // Hex Shield Bubble (protects player on demand or damage)
+  const shieldBubble = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(1.65, 2),
+    new THREE.MeshBasicMaterial({ color: 0x5df8ff, transparent: true, opacity: 0.3, wireframe: true })
   );
-  shieldRing.rotation.x = Math.PI / 2;
-  shieldRing.visible = false;
-  drone.add(shieldRing);
-  drone.userData.shieldRing = shieldRing;
+  shieldBubble.visible = false;
+  drone.userData.shieldBubble = shieldBubble;
 
   const droneLight = new THREE.PointLight(0x52f2fc, 2.0, 7);
   droneLight.position.set(0, 0, 0.2);
@@ -332,6 +351,59 @@ export function buildCompanionDrone(mats) {
   drone.userData.light = droneLight;
 
   return drone;
+}
+
+// First-Person ViewModel (FPS Light Bow Rig)
+export function createFPSViewModel(mats) {
+  const fpsRig = new THREE.Group();
+  fpsRig.name = "FPS_ViewModel";
+
+  // Light Bow attached in First Person perspective
+  const bow = buildArcoDeLuz(mats);
+  bow.position.set(0.28, -0.25, -0.58);
+  bow.rotation.set(0.08, 0.32, -0.12);
+  bow.scale.set(0.65, 0.65, 0.65);
+  fpsRig.add(bow);
+
+  // Left & right arm sleeves and gloves holding bow
+  const leftForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.048, 0.36, 8), mats.bracerMat);
+  leftForearm.position.set(0.24, -0.38, -0.44);
+  leftForearm.rotation.set(0.7, 0.25, -0.4);
+  fpsRig.add(leftForearm);
+
+  const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), mats.leatherDark);
+  rightHand.position.set(0.16, -0.26, -0.32);
+  fpsRig.add(rightHand);
+
+  let fpsShootTimer = 0;
+  let bobTimer = 0;
+
+  function playShoot() {
+    fpsShootTimer = 0.26;
+    bow.userData.arrow.visible = true;
+  }
+
+  function update(dt, isMoving, movingRatio = isMoving ? 1 : 0) {
+    bobTimer += dt * (isMoving ? 10 : 2.5);
+    const bobY = Math.sin(bobTimer) * (isMoving ? 0.02 : 0.005);
+    const bobX = Math.cos(bobTimer * 0.5) * (isMoving ? 0.015 : 0.003);
+
+    if (fpsShootTimer > 0) {
+      fpsShootTimer -= dt;
+      const p = Math.max(0, fpsShootTimer / 0.26);
+      bow.userData.arrow.visible = p > 0.08;
+      bow.position.set(0.24 + bobX, -0.22 + bobY, -0.52 + (1 - p) * 0.1);
+      bow.rotation.set(0.02, 0.18, -0.05);
+      rightHand.position.set(0.12, -0.22, -0.22 - p * 0.14);
+    } else {
+      bow.userData.arrow.visible = false;
+      bow.position.set(0.28 + bobX, -0.25 + bobY, -0.58);
+      bow.rotation.set(0.08, 0.32, -0.12);
+      rightHand.position.set(0.18 + bobX, -0.28 + bobY, -0.38);
+    }
+  }
+
+  return { fpsRig, bow, playShoot, update };
 }
 
 export function createProtagonist() {
