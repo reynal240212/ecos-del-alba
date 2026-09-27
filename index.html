@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ecos del Alba - Demo 3D</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <canvas id="game" aria-label="Demo 3D de Ecos del Alba"></canvas>
+      <header class="hud" aria-label="Estado del juego">
+        <div class="identity">
+          <strong>Ecos del Alba</strong>
+          <span>El legado de los ancestros</span>
+        </div>
+        <div class="mission">
+          <span class="mission-label">MISIÓN</span>
+          <strong id="objective">Activa los 3 cristales ancestrales</strong>
+        </div>
+        <div class="meters">
+          <label><span>VIDA</span><meter id="health" min="0" max="100" value="100"></meter></label>
+          <label><span>ENERGÍA</span><meter id="energy" min="0" max="100" value="100"></meter></label>
+        </div>
+        <div class="hud-buttons">
+          <button id="btn-leaderboard" class="hud-action-btn" title="Tabla de Clasificación (Tecla T)">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+              <path d="M4 22h16"></path>
+              <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+              <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+            </svg>
+            <span>Récords</span>
+            <kbd>T</kbd>
+          </button>
+          <button id="btn-inspect" class="hud-action-btn" title="Modo Inspección 3D (Tecla V)">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            <span>Modelo 3D</span>
+            <kbd>V</kbd>
+          </button>
+        </div>
+      </header>
+
+      <!-- Panel de Inspección de Modelo 3D (Hoja de Referencia Aurora Studios) -->
+      <aside id="inspect-panel" class="inspect-panel hidden" aria-label="Inspección de Modelo 3D">
+        <div class="inspect-header">
+          <div class="inspect-badge">AURORA STUDIOS</div>
+          <h2>HOJA DE REFERENCIA DE MODELO 3D: ECOS DEL ALBA</h2>
+          <p>Personaje Principal · Arco de Luz · Dron Compañero · Runas Ancestrales</p>
+        </div>
+        <nav class="inspect-tabs" aria-label="Vistas de referencia">
+          <button class="tab-btn active" data-view="frontal">Vista Frontal</button>
+          <button class="tab-btn" data-view="perfil">Vista de Perfil</button>
+          <button class="tab-btn" data-view="posterior">Vista Posterior</button>
+          <button class="tab-btn" data-view="arco">Arco de Luz</button>
+          <button class="tab-btn" data-view="dron">Dron Compañero</button>
+          <button class="tab-btn" data-view="orbit">Órbita 360°</button>
+        </nav>
+        <div class="inspect-footer">
+          <button id="btn-exit-inspect" class="exit-btn">← Volver al Juego <kbd>ESC</kbd></button>
+          <span class="inspect-hint">Arrastra con el ratón para rotar 360° · Rueda para zoom</span>
+        </div>
+      </aside>
+
+      <!-- Modal de Clasificación / Base de Datos -->
+      <div id="leaderboard-modal" class="modal-overlay hidden" aria-label="Tabla de Récords">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h3>CLASIFICACIÓN ANCESTRAL</h3>
+            <button id="btn-close-leaderboard" class="modal-close" aria-label="Cerrar">&times;</button>
+          </div>
+          <div id="leaderboard-db-status" class="db-status-tag">Conectado a Vercel Postgres</div>
+          <div class="leaderboard-table-wrap">
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Guerrero/a</th>
+                  <th>Puntuación</th>
+                  <th>Cristales</th>
+                  <th>Tiempo</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-body">
+                <tr><td colspan="5" class="loading-td">Cargando récords ancestrales...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="score-submit-box" class="score-submit-box hidden">
+            <h4>¡Registra tu récord en la Base de Datos!</h4>
+            <div class="score-summary">Puntuación: <strong id="summary-score">0</strong> pts · Tiempo: <strong id="summary-time">0</strong>s</div>
+            <form id="score-form" class="score-form">
+              <input type="text" id="player-name-input" maxlength="20" placeholder="Ingresa tu nombre..." required />
+              <button type="submit" class="submit-score-btn">Guardar Récord</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="reticle" aria-hidden="true"></div>
+      <div id="message" class="message" aria-live="polite"></div>
+      <footer class="controls">
+        <span><kbd>WASD</kbd> Mover</span>
+        <span><kbd>Mouse</kbd> Apuntar</span>
+        <span><kbd>Click</kbd> Disparar</span>
+        <span><kbd>T</kbd> Récords (DB)</span>
+        <span><kbd>V</kbd> Modelo 3D</span>
+        <span><kbd>R</kbd> Reiniciar</span>
+      </footer>
+    </main>
+    <script type="module" src="game.js"></script>
+  </body>
+</html>

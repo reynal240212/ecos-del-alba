@@ -1,0 +1,24 @@
+{
+  "name": "ecos-del-alba",
+  "version": "1.0.0",
+  "description": "Ecos del Alba - Videojuego 3D de acción y exploración con Tres.js y Vercel Postgres",
+  "main": "game.js",
+  "type": "module",
+  "scripts": {
+    "start": "python -m http.server 8000"
+  },
+  "dependencies": {
+    "@vercel/postgres": "^0.10.0"
+  },
+  "keywords": [
+    "threejs",
+    "webgl",
+    "game",
+    "3d",
+    "vercel",
+    "postgres",
+    "aurora-studios"
+  ],
+  "author": "reynal240212",
+  "license": "MIT"
+}
