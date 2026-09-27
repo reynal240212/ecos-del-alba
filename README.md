@@ -1,5 +1,7 @@
 # 🏹 Ecos del Alba — Videojuego 3D de Acción & Exploración
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Freynal240212%2Fecos-del-alba&stores=%5B%7B%22type%22%3A%22postgres%22%7D%5D)
+
 Un videojuego 3D interactivo en la web desarrollado con **Three.js**, renderizado WebGL de alto rendimiento, efectos de sonido sintetizados con **Web Audio API** y persistencia en la nube mediante **Vercel Serverless Functions** y **Vercel Postgres (Neon)**.
 
 Basado en el diseño y arte conceptual de **Aurora Studios**: *Hoja de Referencia de Modelo 3D de Personaje Principal*.
