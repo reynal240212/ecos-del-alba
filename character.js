@@ -379,29 +379,39 @@ export function createFPSViewModel(mats) {
 
   let fpsShootTimer = 0;
   let bobTimer = 0;
+  let recoilKick = 0;
 
   function playShoot() {
-    fpsShootTimer = 0.26;
+    fpsShootTimer = 0.28;
+    recoilKick = 0.14;
     bow.userData.arrow.visible = true;
   }
 
   function update(dt, isMoving, movingRatio = isMoving ? 1 : 0) {
-    bobTimer += dt * (isMoving ? 10 : 2.5);
-    const bobY = Math.sin(bobTimer) * (isMoving ? 0.02 : 0.005);
-    const bobX = Math.cos(bobTimer * 0.5) * (isMoving ? 0.015 : 0.003);
+    bobTimer += dt * (isMoving ? 9.5 : 2.6);
+    const bobY = Math.sin(bobTimer) * (isMoving ? 0.022 : 0.004);
+    const bobX = Math.cos(bobTimer * 0.5) * (isMoving ? 0.016 : 0.003);
+    const breathe = Math.sin(bobTimer * 0.8) * 0.004;
+
+    // Smooth recoil decay with spring damping
+    recoilKick = THREE.MathUtils.lerp(recoilKick, 0, 1 - Math.pow(0.001, dt));
 
     if (fpsShootTimer > 0) {
       fpsShootTimer -= dt;
-      const p = Math.max(0, fpsShootTimer / 0.26);
-      bow.userData.arrow.visible = p > 0.08;
-      bow.position.set(0.24 + bobX, -0.22 + bobY, -0.52 + (1 - p) * 0.1);
-      bow.rotation.set(0.02, 0.18, -0.05);
-      rightHand.position.set(0.12, -0.22, -0.22 - p * 0.14);
+      const p = Math.max(0, fpsShootTimer / 0.28);
+      bow.userData.arrow.visible = p > 0.45;
+      
+      const kickZ = Math.sin(p * Math.PI) * 0.09;
+      const kickRot = Math.sin(p * Math.PI) * 0.16;
+
+      bow.position.set(0.25 + bobX, -0.22 + bobY + breathe + kickRot * 0.25, -0.53 + kickZ - recoilKick);
+      bow.rotation.set(0.08 - kickRot, 0.30, -0.10 + kickRot * 0.4);
+      rightHand.position.set(0.14, -0.23, -0.26 - p * 0.2);
     } else {
       bow.userData.arrow.visible = false;
-      bow.position.set(0.28 + bobX, -0.25 + bobY, -0.58);
+      bow.position.set(0.28 + bobX, -0.25 + bobY + breathe, -0.58 - recoilKick);
       bow.rotation.set(0.08, 0.32, -0.12);
-      rightHand.position.set(0.18 + bobX, -0.28 + bobY, -0.38);
+      rightHand.position.set(0.18 + bobX, -0.28 + bobY + breathe, -0.38);
     }
   }
 

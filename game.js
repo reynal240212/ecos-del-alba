@@ -964,10 +964,12 @@ function loadLevel(levelNum) {
   crystals.forEach((c) => scene.remove(c.group));
   bolts.forEach((b) => scene.remove(b.mesh));
   enemyBolts.forEach((b) => scene.remove(b.mesh));
+  shockwaves.forEach((s) => scene.remove(s.mesh));
   enemies = [];
   crystals = [];
   bolts = [];
   enemyBolts = [];
+  shockwaves.length = 0;
   levelBoss = null;
   bossHud.classList.add("hidden");
   if (chestManager) chestManager.clear();
@@ -1111,6 +1113,100 @@ function spawnTitanBoss(x, z) {
 // ==========================================================================
 // Combat: Weapons, Recoil, Projectiles & EMP
 // ==========================================================================
+const shockwaves = [];
+function createImpactShockwave(position, color = 0x5df8ff, maxRadius = 2.4) {
+  const geo = new THREE.RingGeometry(0.12, 0.32, 22);
+  const mat = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.92,
+    side: THREE.DoubleSide
+  });
+  const ringMesh = new THREE.Mesh(geo, mat);
+  ringMesh.position.copy(position).add(new THREE.Vector3(0, 0.12, 0));
+  ringMesh.rotation.x = -Math.PI / 2;
+  scene.add(ringMesh);
+  shockwaves.push({ mesh: ringMesh, maxRadius, life: 0.35, maxLife: 0.35 });
+}
+
+function updateShockwaves(dt) {
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    const sw = shockwaves[i];
+    sw.life -= dt;
+    const p = 1 - Math.max(0, sw.life / sw.maxLife);
+    const r = THREE.MathUtils.lerp(0.3, sw.maxRadius, Math.sqrt(p));
+    sw.mesh.scale.set(r, r, 1);
+    sw.mesh.material.opacity = (1 - p) * 0.9;
+    if (sw.life <= 0) {
+      scene.remove(sw.mesh);
+      sw.mesh.geometry.dispose();
+      sw.mesh.material.dispose();
+      shockwaves.splice(i, 1);
+    }
+  }
+}
+
+function spawnArrowTrail(position, color = 0x5df8ff) {
+  if (Math.random() > 0.55) return;
+  const pMesh = mesh(
+    new THREE.SphereGeometry(0.045, 4, 3),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8 }),
+    false
+  );
+  pMesh.position.copy(position).add(new THREE.Vector3(
+    (Math.random() - 0.5) * 0.08,
+    (Math.random() - 0.5) * 0.08,
+    (Math.random() - 0.5) * 0.08
+  ));
+  scene.add(pMesh);
+  particles.push({
+    mesh: pMesh,
+    velocity: new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4),
+    life: 0.2
+  });
+}
+
+function createRunicArrowMesh(tier = 1) {
+  const group = new THREE.Group();
+  const colorHex = tier >= 3 ? 0xe959ff : tier === 2 ? 0x4ef2bb : 0x5df8ff;
+
+  const arrowMat = new THREE.MeshBasicMaterial({ color: colorHex });
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+  // Luminous main shaft
+  const shaft = mesh(new THREE.CylinderGeometry(0.024, 0.024, 1.45, 6), arrowMat, false);
+  shaft.rotation.x = Math.PI / 2;
+  group.add(shaft);
+
+  // White-hot core energy beam
+  const core = mesh(new THREE.CylinderGeometry(0.009, 0.009, 1.35, 4), coreMat, false);
+  core.rotation.x = Math.PI / 2;
+  group.add(core);
+
+  // Diamond arrowhead
+  const head = mesh(new THREE.ConeGeometry(0.09, 0.38, 4), arrowMat, false);
+  head.rotation.x = -Math.PI / 2;
+  head.position.z = -0.74;
+  group.add(head);
+
+  // 3 Holographic Fletching fins at the rear
+  for (let i = 0; i < 3; i++) {
+    const finAngle = (i * Math.PI * 2) / 3;
+    const fin = mesh(new THREE.BoxGeometry(0.012, 0.12, 0.24), arrowMat, false);
+    fin.position.set(Math.cos(finAngle) * 0.038, Math.sin(finAngle) * 0.038, 0.52);
+    fin.rotation.z = finAngle;
+    fin.rotation.y = 0.08;
+    group.add(fin);
+  }
+
+  // Energy halo ring that spins along flight
+  const ring = mesh(new THREE.TorusGeometry(0.095, 0.014, 5, 14), arrowMat, false);
+  ring.position.z = -0.22;
+  group.add(ring);
+
+  return { group, ring, color: colorHex };
+}
+
 function shoot() {
   if (isGamePaused || inspectMode || isLeaderboardOpen || isUpgradeOpen || isWardrobeOpen || isProfileOpen || isSettingsOpen) return;
   if (player.energy < 12 || player.shootCooldown > 0 || gameOver || gameFinished) return;
@@ -1130,6 +1226,7 @@ function shoot() {
     camera.getWorldDirection(direction);
     origin.copy(camera.position).addScaledVector(direction, 0.6);
     fpsViewModel.playShoot();
+    cameraPitch = Math.min(1.2, cameraPitch + 0.025); // Snappy visual recoil
   } else {
     origin.copy(player.group.position).add(new THREE.Vector3(0, 1.5, 0));
     direction.copy(aimPoint).sub(player.group.position);
@@ -1142,27 +1239,30 @@ function shoot() {
   const arrowDamage = upgrades.bow === 1 ? 25 : upgrades.bow === 2 ? 40 : 55;
 
   const fireBolt = (dirOffset = 0) => {
-    const boltMesh = new THREE.Group();
-    const arrowCore = mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.4, 6), mats.cyan, false);
-    arrowCore.rotation.x = Math.PI / 2;
-    boltMesh.add(arrowCore);
-
-    const headGlow = mesh(new THREE.ConeGeometry(0.12, 0.32, 6), mats.cyan, false);
-    headGlow.rotation.x = -Math.PI / 2;
-    headGlow.position.z = -0.7;
-    boltMesh.add(headGlow);
-
+    const { group: boltMesh, ring, color } = createRunicArrowMesh(upgrades.bow);
     const finalDir = direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), dirOffset);
-    boltMesh.position.copy(origin).addScaledVector(finalDir, 0.8);
+    // Slight upward ballistic tilt for satisfying arc
+    finalDir.y += 0.04;
+    finalDir.normalize();
+
+    boltMesh.position.copy(origin).addScaledVector(finalDir, 0.7);
     boltMesh.lookAt(boltMesh.position.clone().add(finalDir));
     scene.add(boltMesh);
-    bolts.push({ mesh: boltMesh, velocity: finalDir.multiplyScalar(34), damage: arrowDamage, life: 1.6 });
+
+    bolts.push({
+      mesh: boltMesh,
+      ring,
+      color,
+      velocity: finalDir.multiplyScalar(36),
+      damage: arrowDamage,
+      life: 1.8
+    });
   };
 
   fireBolt(0);
   if (upgrades.bow >= 3) {
-    fireBolt(0.14);
-    fireBolt(-0.14);
+    fireBolt(0.12);
+    fireBolt(-0.12);
   }
 }
 
@@ -1546,12 +1646,26 @@ function updateEnemies(dt) {
 function updateBolts(dt) {
   for (let i = bolts.length - 1; i >= 0; i -= 1) {
     const bolt = bolts[i];
+    // Gentle ballistic gravity arc for natural arrow flight
+    bolt.velocity.y -= 3.6 * dt;
     bolt.mesh.position.addScaledVector(bolt.velocity, dt);
+    bolt.mesh.lookAt(bolt.mesh.position.clone().add(bolt.velocity));
+
+    // Spin energy halo ring
+    if (bolt.ring) {
+      bolt.ring.rotation.z += dt * 18;
+    }
+
+    // Leave luminous comet trail
+    const arrowColor = bolt.color || 0x5df8ff;
+    spawnArrowTrail(bolt.mesh.position, arrowColor);
+
     bolt.life -= dt;
     let hit = false;
 
     if (checkProjectileCollision(bolt.mesh.position, 0.25)) {
-      burst(bolt.mesh.position, 0x73eff7, 10);
+      burst(bolt.mesh.position, arrowColor, 12);
+      createImpactShockwave(bolt.mesh.position, arrowColor, 2.0);
       playSound("hit");
       hit = true;
     }
@@ -1563,7 +1677,8 @@ function updateBolts(dt) {
         const enemyCenter = enemy.group.position.clone().add(new THREE.Vector3(0, enemy.isBoss ? 3.0 : 1.2, 0));
         if (bolt.mesh.position.distanceTo(enemyCenter) < hitRadius) {
           enemy.health -= bolt.damage;
-          burst(enemy.group.position, 0x73eff7, 10);
+          burst(enemy.group.position, arrowColor, 16);
+          createImpactShockwave(enemy.group.position, arrowColor, enemy.isBoss ? 4.0 : 2.4);
           playSound("hit");
           hit = true;
           if (enemy.health <= 0) {
@@ -2442,6 +2557,7 @@ function animate(frameTime = performance.now()) {
     updateBolts(dt);
     updateEnemyBolts(dt);
     updateParticles(dt);
+    updateShockwaves(dt);
     updateAmbientMotes(dt);
 
     // Update Chests & Proximity Check
@@ -2477,6 +2593,7 @@ function animate(frameTime = performance.now()) {
   } else if (player.heroine) {
     player.heroine.update(dt, false, null, false, null);
     updateParticles(dt);
+    updateShockwaves(dt);
     updateAmbientMotes(dt);
   }
 
