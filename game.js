@@ -50,14 +50,24 @@ const btnUpgradeArmor = document.querySelector("#btn-upgrade-armor");
 // Main Menu, Settings, Profile & Wardrobe Shop DOM Elements
 const mainMenuOverlay = document.querySelector("#main-menu-overlay");
 const btnStartGame = document.querySelector("#btn-start-game");
+const btnContinueGame = document.querySelector("#btn-continue-game");
+const btnContinueSub = document.querySelector("#btn-continue-sub");
+const btnOpenGalleryMenu = document.querySelector("#btn-open-gallery-menu");
 const btnOpenShopMenu = document.querySelector("#btn-open-shop-menu");
 const btnOpenRecordsMenu = document.querySelector("#btn-open-records-menu");
 const btnOpenSettingsMenu = document.querySelector("#btn-open-settings-menu");
+const btnOpenCreditsMenu = document.querySelector("#btn-open-credits-menu");
+const creditsModal = document.querySelector("#credits-modal");
+const btnCloseCredits = document.querySelector("#btn-close-credits");
+const btnCreditsBack = document.querySelector("#btn-credits-back");
 const btnMenuSwitchUser = document.querySelector("#btn-menu-switch-user");
 const menuAvatarIcon = document.querySelector("#menu-avatar-icon");
 const menuPlayerName = document.querySelector("#menu-player-name");
 const menuPlayerLevel = document.querySelector("#menu-player-level");
 const menuPlayerXp = document.querySelector("#menu-player-xp");
+const menuPlayerEssence = document.querySelector("#menu-player-essence");
+let openedInspectFromMenu = false;
+let openedModalFromMenu = false;
 
 const btnProfileOpen = document.querySelector("#btn-profile-open");
 const hudAvatarIcon = document.querySelector("#hud-avatar-icon");
@@ -281,6 +291,30 @@ function playSound(type) {
         o.start(now + i * 0.12);
         o.stop(now + i * 0.12 + 1.2);
       });
+    } else if (type === "uiHover") {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(1100, now + 0.04);
+      gain.gain.setValueAtTime(0.08 * sfxVol, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      osc.start(now);
+      osc.stop(now + 0.04);
+    } else if (type === "uiClick") {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(587, now);
+      osc.frequency.exponentialRampToValueAtTime(987, now + 0.08);
+      gain.gain.setValueAtTime(0.18 * sfxVol, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.start(now);
+      osc.stop(now + 0.08);
     }
   } catch (e) {}
 }
@@ -525,6 +559,8 @@ function updateProfileUI() {
   if (menuPlayerName) menuPlayerName.textContent = u.name;
   if (menuPlayerLevel) menuPlayerLevel.textContent = `Nivel ${u.level}`;
   if (menuPlayerXp) menuPlayerXp.textContent = `${u.xp} / ${u.xpToNext} XP`;
+  if (menuPlayerEssence) menuPlayerEssence.textContent = u.essence;
+  if (btnContinueSub) btnContinueSub.textContent = `Reanudar Nivel ${currentLevel} (${u.name})`;
 
   // Profile Modal Stats
   if (profStatLevel) profStatLevel.textContent = u.level;
@@ -1979,14 +2015,26 @@ wardrobeTabs.forEach((tab) => {
 });
 
 function openWardrobe() {
+  initAudio();
+  playSound("uiClick");
+  if (!mainMenuOverlay.classList.contains("hidden")) {
+    openedModalFromMenu = true;
+    mainMenuOverlay.classList.add("hidden");
+  }
   isWardrobeOpen = true;
   updateWardrobeUI();
   wardrobeModal.classList.remove("hidden");
 }
 
 function closeWardrobe() {
+  initAudio();
+  playSound("uiClick");
   isWardrobeOpen = false;
   wardrobeModal.classList.add("hidden");
+  if (openedModalFromMenu && isGamePaused) {
+    mainMenuOverlay.classList.remove("hidden");
+    openedModalFromMenu = false;
+  }
 }
 
 btnWardrobeOpen.addEventListener("click", openWardrobe);
@@ -1999,13 +2047,25 @@ btnOpenShopMenu.addEventListener("click", () => {
 // Settings, Pause & Audio Options
 // ==========================================================================
 function openSettings() {
+  initAudio();
+  playSound("uiClick");
+  if (!mainMenuOverlay.classList.contains("hidden")) {
+    openedModalFromMenu = true;
+    mainMenuOverlay.classList.add("hidden");
+  }
   isSettingsOpen = true;
   settingsModal.classList.remove("hidden");
 }
 
 function closeSettings() {
+  initAudio();
+  playSound("uiClick");
   isSettingsOpen = false;
   settingsModal.classList.add("hidden");
+  if (openedModalFromMenu && isGamePaused) {
+    mainMenuOverlay.classList.remove("hidden");
+    openedModalFromMenu = false;
+  }
 }
 
 btnSettingsOpen.addEventListener("click", openSettings);
@@ -2071,14 +2131,26 @@ selectShadows.addEventListener("change", (e) => {
 // Profile & User Login Modal
 // ==========================================================================
 function openProfile() {
+  initAudio();
+  playSound("uiClick");
+  if (!mainMenuOverlay.classList.contains("hidden")) {
+    openedModalFromMenu = true;
+    mainMenuOverlay.classList.add("hidden");
+  }
   isProfileOpen = true;
   updateProfileUI();
   profileModal.classList.remove("hidden");
 }
 
 function closeProfile() {
+  initAudio();
+  playSound("uiClick");
   isProfileOpen = false;
   profileModal.classList.add("hidden");
+  if (openedModalFromMenu && isGamePaused) {
+    mainMenuOverlay.classList.remove("hidden");
+    openedModalFromMenu = false;
+  }
 }
 
 btnProfileOpen.addEventListener("click", openProfile);
@@ -2102,10 +2174,40 @@ profileForm.addEventListener("submit", (e) => {
 });
 
 // ==========================================================================
-// Main Menu Start Game Button
+// Credits & Lore Modal (Aurora Studios)
 // ==========================================================================
-function startGame() {
+function openCredits() {
   initAudio();
+  playSound("uiClick");
+  if (!mainMenuOverlay.classList.contains("hidden")) {
+    openedModalFromMenu = true;
+    mainMenuOverlay.classList.add("hidden");
+  }
+  if (creditsModal) creditsModal.classList.remove("hidden");
+}
+
+function closeCredits() {
+  initAudio();
+  playSound("uiClick");
+  if (creditsModal) creditsModal.classList.add("hidden");
+  if (openedModalFromMenu && isGamePaused) {
+    mainMenuOverlay.classList.remove("hidden");
+    openedModalFromMenu = false;
+  }
+}
+
+if (btnOpenCreditsMenu) btnOpenCreditsMenu.addEventListener("click", openCredits);
+if (btnCloseCredits) btnCloseCredits.addEventListener("click", closeCredits);
+if (btnCreditsBack) btnCreditsBack.addEventListener("click", closeCredits);
+
+// ==========================================================================
+// Main Menu Actions (Nueva Partida, Continuar, Galería 3D)
+// ==========================================================================
+function startGame(isNew = false) {
+  initAudio();
+  if (isNew) {
+    resetGame();
+  }
   mainMenuOverlay.classList.add("hidden");
   isGamePaused = false;
   if (!musicEngine.isPlaying) {
@@ -2113,17 +2215,55 @@ function startGame() {
     musicEngine.setVolume(audioSettings.master * audioSettings.music);
     updateMusicUI();
   }
-  showToast("⚔️ ¡Aventura Iniciada!");
 }
 
 btnStartGame.addEventListener("click", (e) => {
   e.preventDefault();
-  startGame();
+  playSound("uiClick");
+  startGame(true);
+  showToast("⚔️ ¡Nueva Partida Iniciada! Nivel 1");
 });
 
 btnStartGame.addEventListener("touchend", (e) => {
   e.preventDefault();
-  startGame();
+  playSound("uiClick");
+  startGame(true);
+  showToast("⚔️ ¡Nueva Partida Iniciada! Nivel 1");
+});
+
+if (btnContinueGame) {
+  btnContinueGame.addEventListener("click", (e) => {
+    e.preventDefault();
+    playSound("uiClick");
+    startGame(false);
+    showToast(`💾 Partida Reanudada · Nivel ${currentLevel}`);
+  });
+
+  btnContinueGame.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    playSound("uiClick");
+    startGame(false);
+    showToast(`💾 Partida Reanudada · Nivel ${currentLevel}`);
+  });
+}
+
+if (btnOpenGalleryMenu) {
+  btnOpenGalleryMenu.addEventListener("click", (e) => {
+    e.preventDefault();
+    initAudio();
+    playSound("uiClick");
+    openedInspectFromMenu = true;
+    mainMenuOverlay.classList.add("hidden");
+    setInspectMode(true);
+    showToast("🏛️ Extra: Galería de Modelos 3D");
+  });
+}
+
+// Audio de Hover en Botones del Menú
+document.querySelectorAll(".menu-action-btn").forEach((btn) => {
+  btn.addEventListener("mouseenter", () => {
+    playSound("uiHover");
+  });
 });
 
 // Chest Open Event Listener
@@ -2204,6 +2344,12 @@ function renderLeaderboard(list) {
 }
 
 function openLeaderboard(allowSubmit = false) {
+  initAudio();
+  playSound("uiClick");
+  if (!mainMenuOverlay.classList.contains("hidden")) {
+    openedModalFromMenu = true;
+    mainMenuOverlay.classList.add("hidden");
+  }
   isLeaderboardOpen = true;
   leaderboardModal.classList.remove("hidden");
   fetchScores();
@@ -2219,8 +2365,14 @@ function openLeaderboard(allowSubmit = false) {
 }
 
 function closeLeaderboard() {
+  initAudio();
+  playSound("uiClick");
   isLeaderboardOpen = false;
   leaderboardModal.classList.add("hidden");
+  if (openedModalFromMenu && isGamePaused) {
+    mainMenuOverlay.classList.remove("hidden");
+    openedModalFromMenu = false;
+  }
 }
 
 scoreForm.addEventListener("submit", async (e) => {
@@ -2376,6 +2528,10 @@ function setInspectMode(active) {
   } else {
     inspectPanel.classList.add("hidden");
     document.querySelector(".reticle").style.display = "block";
+    if (openedInspectFromMenu && isGamePaused) {
+      openedInspectFromMenu = false;
+      mainMenuOverlay.classList.remove("hidden");
+    }
   }
 }
 

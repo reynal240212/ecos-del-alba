@@ -297,52 +297,109 @@
       </div>
 
       <!-- 1. Pantalla de Inicio / Menú Principal -->
+      <!-- 1. Menú Principal AAA (AURORA STUDIOS) -->
       <div id="main-menu-overlay" class="menu-overlay">
+        <div class="menu-ambient-glow" aria-hidden="true"></div>
         <div class="main-menu-card">
-          <div class="menu-brand">
-            <span class="brand-tag">AURORA STUDIOS · RPG DE ACCIÓN 3D</span>
+          <!-- Cabecera de Marca Aurora Studios -->
+          <header class="menu-brand">
+            <div class="brand-tag-wrap">
+              <span class="sparkle">✦</span>
+              <span class="brand-tag">AURORA STUDIOS · HOJA DE REFERENCIA 3D</span>
+              <span class="sparkle">✦</span>
+            </div>
             <h1 class="brand-title">ECOS DEL ALBA</h1>
-            <p class="brand-desc">Aventura Rúnica, Combate Táctico y Personalización de Avatar</p>
-          </div>
+            <p class="brand-desc">ARCO DE LUZ · DRON COMPAÑERO · RUNAS ANCESTRALES</p>
+          </header>
 
+          <!-- Perfil Rápido de Jugadora -->
           <div class="menu-profile-bar" id="menu-profile-bar">
-            <span id="menu-avatar-icon" class="menu-avatar-icon">🏹</span>
+            <div class="menu-avatar-badge" id="menu-avatar-icon">🏹</div>
             <div class="menu-profile-meta">
-              <strong id="menu-player-name">Guerrera del Alba</strong>
+              <div class="profile-meta-top">
+                <strong id="menu-player-name">Guerrera del Alba</strong>
+                <button id="btn-menu-switch-user" class="menu-switch-btn" title="Iniciar Sesión o Cambiar Usuario">👤 Cambiar</button>
+              </div>
               <div class="menu-xp-line">
-                <span id="menu-player-level">Nivel 1</span> ·
-                <span id="menu-player-xp">0 / 150 XP</span>
+                <span id="menu-player-level" class="pill-lvl">Nivel 1</span>
+                <span id="menu-player-xp" class="text-xp">0 / 150 XP</span>
+                <span class="pill-essence">💎 <span id="menu-player-essence">0</span></span>
               </div>
             </div>
-            <button id="btn-menu-switch-user" class="menu-switch-btn" title="Iniciar Sesión o Cambiar Usuario">👤 Cambiar</button>
           </div>
 
+          <!-- Botonera Principal del Menú -->
           <nav class="menu-action-buttons">
-            <button id="btn-start-game" class="menu-action-btn primary">
+            <button id="btn-start-game" class="menu-action-btn primary" title="Comenzar una nueva partida desde el inicio">
               <span class="btn-icon">⚔️</span>
-              <span class="btn-label">Iniciar Partida</span>
+              <div class="btn-content">
+                <span class="btn-title">NUEVA PARTIDA</span>
+                <span class="btn-subtitle">Comenzar desde el Nivel 1</span>
+              </div>
+              <span class="btn-arrow">→</span>
             </button>
-            <button id="btn-open-shop-menu" class="menu-action-btn">
-              <span class="btn-icon">👗</span>
-              <span class="btn-label">Tienda de Avatar & Accesorios</span>
+
+            <button id="btn-continue-game" class="menu-action-btn secondary" title="Reanudar tu aventura actual">
+              <span class="btn-icon">💾</span>
+              <div class="btn-content">
+                <span class="btn-title">CONTINUAR PARTIDA</span>
+                <span class="btn-subtitle" id="btn-continue-sub">Reanudar progreso actual</span>
+              </div>
+              <span class="btn-arrow">→</span>
             </button>
-            <button id="btn-open-records-menu" class="menu-action-btn">
-              <span class="btn-icon">🏆</span>
-              <span class="btn-label">Récords & Clasificación</span>
+
+            <button id="btn-open-gallery-menu" class="menu-action-btn highlight" title="Inspeccionar el modelo 3D de Aria y el Dron en 360 grados">
+              <span class="btn-icon">🏛️</span>
+              <div class="btn-content">
+                <span class="btn-title">EXTRA · GALERÍA DE MODELOS 3D</span>
+                <span class="btn-subtitle">Inspección de Aria, Dron y animación 360°</span>
+              </div>
+              <span class="btn-arrow">→</span>
             </button>
-            <button id="btn-open-settings-menu" class="menu-action-btn">
-              <span class="btn-icon">⚙️</span>
-              <span class="btn-label">Ajustes & Opciones</span>
-            </button>
-            <button id="btn-menu-fullscreen" class="menu-action-btn" title="Pantalla Completa y Modo Horizontal">
+
+            <div class="menu-btn-grid">
+              <button id="btn-open-shop-menu" class="menu-action-btn grid-btn" title="Tienda de Avatar y Accesorios">
+                <span class="btn-icon">👗</span>
+                <div class="btn-content">
+                  <span class="btn-title">Tienda Avatar</span>
+                  <span class="btn-subtitle">Alas y trajes</span>
+                </div>
+              </button>
+
+              <button id="btn-open-records-menu" class="menu-action-btn grid-btn" title="Clasificación y Récords">
+                <span class="btn-icon">🏆</span>
+                <div class="btn-content">
+                  <span class="btn-title">Récords</span>
+                  <span class="btn-subtitle">Clasificación</span>
+                </div>
+              </button>
+
+              <button id="btn-open-settings-menu" class="menu-action-btn grid-btn" title="Ajustes de Sonido, Gráficos y Cámara">
+                <span class="btn-icon">⚙️</span>
+                <div class="btn-content">
+                  <span class="btn-title">Opciones</span>
+                  <span class="btn-subtitle">Audio y vídeo</span>
+                </div>
+              </button>
+
+              <button id="btn-open-credits-menu" class="menu-action-btn grid-btn" title="Historia y Créditos del Juego">
+                <span class="btn-icon">📜</span>
+                <div class="btn-content">
+                  <span class="btn-title">Créditos & Lore</span>
+                  <span class="btn-subtitle">Aurora Studios</span>
+                </div>
+              </button>
+            </div>
+
+            <button id="btn-menu-fullscreen" class="menu-action-btn util-btn" title="Alternar Pantalla Completa o Modo Horizontal">
               <span class="btn-icon">⛶</span>
-              <span class="btn-label">Modo Horizontal / Pantalla Completa</span>
+              <span class="btn-title">Modo Horizontal / Pantalla Completa</span>
             </button>
           </nav>
 
-          <div class="menu-footer-hint">
-            <span>Controles compatibles con Pantalla Táctil y Teclado/Mouse</span>
-          </div>
+          <footer class="menu-footer-hint">
+            <span>Aurora Studios 2026 · Compatible con Teclado, Ratón y Táctil</span>
+          </footer>
         </div>
       </div>
 
@@ -489,6 +546,48 @@
               <button type="submit" class="submit-score-btn">Guardar e Iniciar Sesión</button>
             </div>
           </form>
+        </div>
+      </div>
+
+      <!-- 5. Modal de Créditos & Lore (Aurora Studios) -->
+      <div id="credits-modal" class="modal-overlay hidden" aria-label="Créditos y Lore de Ecos del Alba">
+        <div class="modal-box credits-box">
+          <div class="modal-header">
+            <div class="credits-badge">✦ AURORA STUDIOS ✦</div>
+            <h3>📜 ECOS DEL ALBA: LORE & CRÉDITOS</h3>
+            <button id="btn-close-credits" class="modal-close" aria-label="Cerrar">&times;</button>
+          </div>
+
+          <div class="credits-content">
+            <div class="lore-card">
+              <h4>🌌 Sinopsis del Mundo Ancestral</h4>
+              <p>
+                En los confines del Templo de Aethel, las runas celestiales han sido mancilladas por una energía umbría desconocida.
+                <strong>Aria</strong>, la última Cazadora de las Estrellas, empuña el <strong>Arco de Luz Rúnico</strong> guiada por su <strong>Dron Guardián</strong> para sintonizar los monolitos, purificar a los centinelas corrompidos y desafiar al colosal <strong>Titán Ancestral</strong>.
+              </p>
+            </div>
+
+            <div class="credits-team-grid">
+              <div class="team-card">
+                <h5>🎨 Arte & Modelado 3D</h5>
+                <p><strong>Aurora Studios Concept Team</strong></p>
+                <p>Aria: Malla 3D, Armadura Rúnica y Arco de Luz</p>
+                <p>Esqueleto Rigging 26 Huesos (Blender 5.2.2 LTS)</p>
+                <p>Dron Orbital y Partículas de Plasma</p>
+              </div>
+              <div class="team-card">
+                <h5>⚡ Tecnología & Motor</h5>
+                <p><strong>Three.js WebGL Engine</strong></p>
+                <p>Renderizado 60 FPS Optimizado para Móvil</p>
+                <p>Cámara Dual 1ª Persona / 3ª Persona Táctil</p>
+                <p>Sintetizador Web Audio API y Música Dinámica</p>
+              </div>
+            </div>
+
+            <div class="credits-actions">
+              <button id="btn-credits-back" class="btn-settings-action primary">Volver al Menú</button>
+            </div>
+          </div>
         </div>
       </div>
 
