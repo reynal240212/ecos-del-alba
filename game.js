@@ -1,5 +1,11 @@
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js";
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createProtagonist, createProtagonistMaterials, createFPSViewModel } from "./character.js";
+
+let blenderHeroine = null;
+let blenderMixer = null;
+let blenderActions = {};
+let activeBlenderAction = null;
 import { musicEngine } from "./music.js";
 import { createSentinelDrone, createCorruptedStalker, createTitanBossModel } from "./enemies.js";
 import { ACCESSORY_CATALOG, WardrobeManager } from "./wardrobe.js";
@@ -957,6 +963,60 @@ function initPlayer() {
 
   applyPlayerUpgrades();
   updateProfileUI();
+  loadBlenderCharacter();
+}
+
+function loadBlenderCharacter() {
+  const loader = new GLTFLoader();
+  loader.load(
+    "models/heroine_aria.glb",
+    (gltf) => {
+      blenderHeroine = gltf.scene;
+
+      blenderHeroine.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = !isMobileDevice;
+          child.receiveShadow = true;
+          if (child.material) {
+            child.material.envMapIntensity = 1.0;
+          }
+        }
+      });
+
+      blenderHeroine.position.set(0, 0, 0);
+      blenderHeroine.scale.set(1.0, 1.0, 1.0);
+
+      if (gltf.animations && gltf.animations.length > 0) {
+        blenderMixer = new THREE.AnimationMixer(blenderHeroine);
+        gltf.animations.forEach((clip) => {
+          blenderActions[clip.name] = blenderMixer.clipAction(clip);
+        });
+
+        if (blenderActions["Idle"]) {
+          blenderActions["Idle"].play();
+          activeBlenderAction = blenderActions["Idle"];
+        }
+      }
+
+      // Ocultar mallas procedurales básicas y activar el modelo exportado de Blender
+      if (player && player.heroine && player.heroine.hips) {
+        player.heroine.hips.visible = false;
+        if (player.heroine.drone) player.heroine.drone.visible = false;
+        if (player.heroine.arcoDeLuz) player.heroine.arcoDeLuz.visible = false;
+      }
+
+      player.group.add(blenderHeroine);
+      player.blenderModel = blenderHeroine;
+      player.blenderMixer = blenderMixer;
+      player.blenderActions = blenderActions;
+
+      showToast("✨ Modelo 3D de Blender integrado con éxito");
+    },
+    undefined,
+    (err) => {
+      console.warn("Aviso GLB: manteniendo modelo procedural Three.js", err);
+    }
+  );
 }
 
 function applyPlayerUpgrades() {
@@ -1284,6 +1344,9 @@ function shoot() {
     if (direction.lengthSq() < 0.01) direction.set(0, 0, -1);
     direction.normalize();
     player.heroine.playShootAnim();
+    if (blenderActions && blenderActions["Shoot"]) {
+      blenderActions["Shoot"].reset().setLoop(THREE.LoopOnce, 1).play();
+    }
   }
 
   const arrowDamage = upgrades.bow === 1 ? 25 : upgrades.bow === 2 ? 40 : 55;
@@ -1541,17 +1604,44 @@ function updatePlayer(dt) {
   player.invulnerable = Math.max(0, player.invulnerable - dt);
 
   if (cameraMode === "fps") {
+    if (blenderHeroine) blenderHeroine.visible = false;
     player.heroine.hips.visible = false;
     player.heroine.arcoDeLuz.visible = false;
     fpsViewModel.fpsRig.visible = !inspectMode;
     fpsViewModel.update(dt, isMoving, isSprinting ? 1.4 : 1.0);
     player.group.rotation.y = cameraYaw;
   } else {
-    player.heroine.hips.visible = true;
-    player.heroine.arcoDeLuz.visible = true;
+    if (blenderHeroine) {
+      blenderHeroine.visible = true;
+      player.heroine.hips.visible = false;
+      player.heroine.arcoDeLuz.visible = false;
+      if (player.heroine.drone) player.heroine.drone.visible = false;
+    } else {
+      player.heroine.hips.visible = true;
+      player.heroine.arcoDeLuz.visible = true;
+      if (player.heroine.drone) player.heroine.drone.visible = true;
+    }
     fpsViewModel.fpsRig.visible = false;
     updateAim();
     player.heroine.update(dt, isMoving, move, true, aimPoint, isSprinting ? 1.4 : 1.0);
+  }
+
+  // Actualización de animaciones esqueléticas de Blender (Idle, Run)
+  if (blenderMixer) {
+    if (isMoving) {
+      if (blenderActions["Run"] && activeBlenderAction !== blenderActions["Run"]) {
+        if (activeBlenderAction) activeBlenderAction.fadeOut(0.2);
+        blenderActions["Run"].reset().fadeIn(0.2).play();
+        activeBlenderAction = blenderActions["Run"];
+      }
+    } else {
+      if (blenderActions["Idle"] && activeBlenderAction !== blenderActions["Idle"]) {
+        if (activeBlenderAction) activeBlenderAction.fadeOut(0.25);
+        blenderActions["Idle"].reset().fadeIn(0.25).play();
+        activeBlenderAction = blenderActions["Idle"];
+      }
+    }
+    blenderMixer.update(dt);
   }
 
   updateCompanionGuardian(dt);
@@ -2820,6 +2910,14 @@ function animate(frameTime = performance.now()) {
     }
   } else if (player.heroine) {
     player.heroine.update(dt, false, null, false, null);
+    if (blenderMixer) {
+      if (blenderActions["Idle"] && activeBlenderAction !== blenderActions["Idle"]) {
+        if (activeBlenderAction) activeBlenderAction.fadeOut(0.25);
+        blenderActions["Idle"].reset().fadeIn(0.25).play();
+        activeBlenderAction = blenderActions["Idle"];
+      }
+      blenderMixer.update(dt);
+    }
     updateCrystals(dt);
     updateParticles(dt);
     updateShockwaves(dt);
