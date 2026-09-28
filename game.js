@@ -1,5 +1,4 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js";
-import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/loaders/GLTFLoader.js";
 import { createProtagonist, createProtagonistMaterials, createFPSViewModel } from "./character.js";
 import { musicEngine } from "./music.js";
 import { createSentinelDrone, createCorruptedStalker, createTitanBossModel } from "./enemies.js";
@@ -908,50 +907,6 @@ function initPlayer() {
 
   applyPlayerUpgrades();
   updateProfileUI();
-  loadHeroineGLB();
-}
-
-let gltfMixer = null;
-let gltfActions = {};
-let gltfActiveAction = null;
-let gltfModel = null;
-
-function loadHeroineGLB() {
-  const loader = new GLTFLoader();
-  loader.load(
-    "models/heroine_aria.glb",
-    (gltf) => {
-      gltfModel = gltf.scene;
-      gltfModel.scale.set(1.0, 1.0, 1.0);
-      gltfModel.position.set(0, 0, 0);
-
-      if (gltf.animations && gltf.animations.length > 0) {
-        gltfMixer = new THREE.AnimationMixer(gltfModel);
-        gltf.animations.forEach((clip) => {
-          const action = gltfMixer.clipAction(clip);
-          gltfActions[clip.name] = action;
-        });
-        if (gltfActions["Idle"]) {
-          gltfActiveAction = gltfActions["Idle"];
-          gltfActiveAction.play();
-        }
-      }
-
-      player.group.add(gltfModel);
-
-      if (cameraMode === "tpp") {
-        player.heroine.hips.visible = false;
-        player.heroine.drone.visible = false;
-        gltfModel.visible = true;
-      } else {
-        gltfModel.visible = false;
-      }
-    },
-    undefined,
-    (err) => {
-      console.warn("Using procedural heroine model:", err);
-    }
-  );
 }
 
 function applyPlayerUpgrades() {
@@ -1279,9 +1234,6 @@ function shoot() {
     if (direction.lengthSq() < 0.01) direction.set(0, 0, -1);
     direction.normalize();
     player.heroine.playShootAnim();
-    if (gltfActions["Shoot"] && gltfModel && gltfModel.visible) {
-      gltfActions["Shoot"].reset().setLoop(THREE.LoopOnce).play();
-    }
   }
 
   const arrowDamage = upgrades.bow === 1 ? 25 : upgrades.bow === 2 ? 40 : 55;
@@ -1900,13 +1852,10 @@ function toggleCameraMode() {
   }
   showToast(cameraMode === "fps" ? "👁️ Vista: Primera Persona (FPS)" : "🏹 Vista: Tercera Persona (Isométrica)");
 
-  if (gltfModel) {
-    gltfModel.visible = (cameraMode === "tpp");
-  }
   if (player.heroine) {
-    player.heroine.hips.visible = (cameraMode === "tpp" && !gltfModel);
-    player.heroine.arcoDeLuz.visible = (cameraMode === "tpp" && !gltfModel);
-    if (player.heroine.drone) player.heroine.drone.visible = (cameraMode === "tpp" && !gltfModel);
+    player.heroine.hips.visible = (cameraMode === "tpp");
+    player.heroine.arcoDeLuz.visible = (cameraMode === "tpp");
+    if (player.heroine.drone) player.heroine.drone.visible = (cameraMode === "tpp");
     if (fpsViewModel) fpsViewModel.fpsRig.visible = (cameraMode === "fps" && !inspectMode);
   }
 
@@ -2611,17 +2560,6 @@ function animate(frameTime = performance.now()) {
   if (!isGamePaused && !gameOver && !gameFinished) {
     elapsed += dt;
     updatePlayer(dt);
-    if (gltfMixer) {
-      gltfMixer.update(dt);
-      const isMoving = player.velocity.lengthSq() > 0.1;
-      const targetAction = isMoving ? "Run" : "Idle";
-      if (gltfActions[targetAction] && gltfActiveAction !== gltfActions[targetAction]) {
-        const prev = gltfActiveAction;
-        gltfActiveAction = gltfActions[targetAction];
-        if (prev) prev.fadeOut(0.2);
-        gltfActiveAction.reset().fadeIn(0.2).play();
-      }
-    }
     updateCrystals(dt);
     updateEnemies(dt);
     updateBolts(dt);
@@ -2661,7 +2599,6 @@ function animate(frameTime = performance.now()) {
       }
     }
   } else if (player.heroine) {
-    if (gltfMixer) gltfMixer.update(dt);
     player.heroine.update(dt, false, null, false, null);
     updateParticles(dt);
     updateShockwaves(dt);
