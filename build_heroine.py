@@ -401,13 +401,28 @@ def create_heroine_rigged():
         "Drone.Bone": ["Drone_Chassis", "Drone_Rune_Ring", "Drone_Core_Eye", "Drone_Fin_1", "Drone_Fin_2", "Drone_Fin_3"]
     }
 
+    # 3. Add vertex groups to each mesh and join into unified skinned character
     for bname, mesh_names in bone_mesh_mapping.items():
         for mname in mesh_names:
             if mname in mesh_objects:
                 mobj = mesh_objects[mname]
-                mobj.parent = arm_obj
-                mobj.parent_type = 'BONE'
-                mobj.parent_bone = bname
+                vg = mobj.vertex_groups.new(name=bname)
+                vg.add(range(len(mobj.data.vertices)), 1.0, 'REPLACE')
+
+    # Join all meshes into single Heroine_Body with Armature modifier
+    bpy.ops.object.select_all(action='DESELECT')
+    all_objs = list(mesh_objects.values())
+    for obj in all_objs:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = all_objs[0]
+    bpy.ops.object.join()
+    heroine_body = bpy.context.active_object
+    heroine_body.name = "Heroine_Body"
+
+    # Add Armature Modifier to bind mesh to the rig
+    mod = heroine_body.modifiers.new(name="Armature", type='ARMATURE')
+    mod.object = arm_obj
+    heroine_body.parent = arm_obj
 
     # 4. Generate 3 Complete Animation Clips (Actions)
     arm_obj.animation_data_create()
