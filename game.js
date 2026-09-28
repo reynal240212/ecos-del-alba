@@ -138,19 +138,25 @@ let currentWardrobeTab = "head";
 let currentSelectedAvatar = "🏹";
 let activeNearChest = null;
 
-// Three.js Core Setup
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFShadowMap;
+// Three.js Core Setup & Mobile 60 FPS Optimization
+const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.innerWidth < 768);
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: !isMobileDevice,
+  powerPreference: "high-performance",
+  precision: isMobileDevice ? "mediump" : "highp"
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobileDevice ? 1.0 : 1.5));
+renderer.shadowMap.enabled = !isMobileDevice;
+renderer.shadowMap.type = THREE.BasicShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 1.3;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x89b6b5);
 scene.fog = new THREE.FogExp2(0x8fb5ac, 0.012);
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 260);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 260);
 scene.add(camera);
 
 const keys = new Set();
@@ -555,15 +561,15 @@ function awardXp(amount, reason = "") {
 function createWorld() {
   worldColliders = [];
 
-  scene.add(new THREE.HemisphereLight(0xbfe8eb, 0x273322, 2.2));
-  const sun = new THREE.DirectionalLight(0xffdfb3, 4.2);
+  scene.add(new THREE.HemisphereLight(0xcdeff8, 0x2e3b2e, 2.5));
+  const sun = new THREE.DirectionalLight(0xffebd2, 3.8);
   sun.position.set(-26, 42, 22);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.castShadow = !isMobileDevice;
+  sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -52, right: 52, top: 46, bottom: -46, near: 1, far: 140 });
   scene.add(sun);
 
-  const fillLight = new THREE.DirectionalLight(0x8ae5ea, 1.4);
+  const fillLight = new THREE.DirectionalLight(0x8ae5ea, 1.5);
   fillLight.position.set(24, 18, -18);
   scene.add(fillLight);
 
@@ -641,7 +647,7 @@ function createPavedPathways() {
     const z = Math.sin(i * 0.65) * 2.6;
     const y = getTerrainHeight(x, z);
 
-    const slab = mesh(new THREE.BoxGeometry(2.8 + (i % 3) * 0.4, 0.14, 2.0), pathMat);
+    const slab = mesh(new THREE.BoxGeometry(2.8 + (i % 3) * 0.4, 0.14, 2.0), pathMat, false);
     slab.position.set(x, y + 0.07, z);
     slab.rotation.y = Math.sin(i * 1.2) * 0.1;
     scene.add(slab);
@@ -774,8 +780,9 @@ function createPortal(x, z) {
 
 function createDetailedFlora() {
   const leafMats = [mats.foliage, new THREE.MeshStandardMaterial({ color: 0x2e6b62, roughness: 0.85 }), mats.enemy];
+  const count = isMobileDevice ? 36 : 48;
 
-  for (let i = 0; i < 75; i += 1) {
+  for (let i = 0; i < count; i += 1) {
     const x = ((i * 37.3) % 76) - 38;
     const z = ((i * 23.7 + 11) % 56) - 28;
     if (Math.hypot(x, z) < 9) continue;
@@ -784,14 +791,14 @@ function createDetailedFlora() {
     const plant = new THREE.Group();
     plant.position.set(x, y, z);
 
-    const stem = mesh(new THREE.CylinderGeometry(0.18, 0.32, 1.8, 6), mats.bark, true);
+    const stem = mesh(new THREE.CylinderGeometry(0.18, 0.32, 1.8, 6), mats.bark, false);
     stem.position.y = 0.9;
     stem.rotation.z = Math.sin(i) * 0.15;
     plant.add(stem);
     addCircleCollider(x, z, 0.45, "tree_trunk");
 
     for (let layer = 0; layer < 3; layer++) {
-      const leaves = mesh(new THREE.ConeGeometry(1.4 - layer * 0.35, 1.2, 6), leafMats[(i + layer) % 3], true);
+      const leaves = mesh(new THREE.ConeGeometry(1.4 - layer * 0.35, 1.2, 6), leafMats[(i + layer) % 3], false);
       leaves.position.y = 1.8 + layer * 0.8;
       leaves.rotation.y = layer * 0.5;
       plant.add(leaves);
@@ -887,6 +894,16 @@ function initPlayer() {
   // Initialize Wardrobe Manager with heroine and materials
   wardrobeManager = new WardrobeManager(heroine, protagonistMaterials);
   wardrobeManager.loadEquipped(profileManager.user.equipped);
+
+  if (cameraMode === "fps") {
+    heroine.hips.visible = false;
+    heroine.arcoDeLuz.visible = false;
+    if (fpsViewModel) fpsViewModel.fpsRig.visible = true;
+  } else {
+    heroine.hips.visible = true;
+    heroine.arcoDeLuz.visible = true;
+    if (fpsViewModel) fpsViewModel.fpsRig.visible = false;
+  }
 
   applyPlayerUpgrades();
   updateProfileUI();

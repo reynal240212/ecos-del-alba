@@ -343,7 +343,9 @@ export function buildCompanionDrone(mats) {
     new THREE.MeshBasicMaterial({ color: 0x5df8ff, transparent: true, opacity: 0.3, wireframe: true })
   );
   shieldBubble.visible = false;
+  drone.add(shieldBubble);
   drone.userData.shieldBubble = shieldBubble;
+  drone.userData.shieldRing = shieldBubble;
 
   const droneLight = new THREE.PointLight(0x52f2fc, 2.0, 7);
   droneLight.position.set(0, 0, 0.2);
@@ -642,8 +644,8 @@ export function createProtagonist() {
 
     // Drone Visual Upgrades
     if (droneLevel >= 2) {
-      drone.userData.shieldRing.visible = true;
-      drone.userData.light.intensity = 3.5;
+      if (drone.userData.shieldBubble) drone.userData.shieldBubble.visible = true;
+      if (drone.userData.light) drone.userData.light.intensity = 3.5;
     }
     if (droneLevel >= 3) {
       drone.scale.set(1.2, 1.2, 1.2);
@@ -704,8 +706,8 @@ export function createProtagonist() {
     drone.position.y = 2.6 + Math.sin(droneHoverTimer) * 0.16;
     drone.position.z = -0.7 + (isMoving ? -0.2 : 0);
     drone.userData.finsGroup.rotation.z += dt * (isMoving ? 1.8 : 0.8);
-    if (drone.userData.shieldRing.visible) {
-      drone.userData.shieldRing.rotation.z += dt * 2.5;
+    if (drone.userData.shieldBubble && drone.userData.shieldBubble.visible) {
+      drone.userData.shieldBubble.rotation.z += dt * 2.5;
     }
     if (auraRing.visible) {
       auraRing.rotation.z += dt * 1.2;
