@@ -68,6 +68,8 @@ const menuPlayerXp = document.querySelector("#menu-player-xp");
 const menuPlayerEssence = document.querySelector("#menu-player-essence");
 let openedInspectFromMenu = false;
 let openedModalFromMenu = false;
+let cameraTransitionTimer = 0;
+const CAMERA_TRANSITION_DURATION = 0.85;
 
 const btnProfileOpen = document.querySelector("#btn-profile-open");
 const hudAvatarIcon = document.querySelector("#hud-avatar-icon");
@@ -609,6 +611,17 @@ function createWorld() {
   fillLight.position.set(24, 18, -18);
   scene.add(fillLight);
 
+  // Iluminación cinemática 3D para Aria en la pantalla de inicio
+  const titleSpot = new THREE.SpotLight(0x5ef4ff, 3.5, 18, Math.PI / 3.8, 0.4, 1.2);
+  titleSpot.position.set(-28, 6, 23);
+  titleSpot.target.position.set(-31, 1.4, 18);
+  scene.add(titleSpot);
+  scene.add(titleSpot.target);
+
+  const titleRim = new THREE.DirectionalLight(0xffebd2, 1.8);
+  titleRim.position.set(-34, 4, 15);
+  scene.add(titleRim);
+
   const groundGeo = new THREE.PlaneGeometry(WORLD.width, WORLD.depth, 76, 58);
   const positions = groundGeo.attributes.position;
   const colors = [];
@@ -918,6 +931,7 @@ function initPlayer() {
   const heroine = createProtagonist();
   const startY = getTerrainHeight(-31, 18);
   heroine.root.position.set(-31, startY, 18);
+  heroine.root.rotation.y = -0.38;
   scene.add(heroine.root);
 
   player.group = heroine.root;
@@ -1823,6 +1837,48 @@ function updateCamera(dt) {
     camera.rotation.order = "YXZ";
     camera.rotation.y = cameraYaw;
     camera.rotation.x = cameraPitch;
+  } else if (!mainMenuOverlay.classList.contains("hidden")) {
+    // Cámara cinemática 3D en tiempo real para el Menú Principal
+    const titleTime = performance.now() * 0.0006;
+    const isPortrait = camera.aspect < 1;
+
+    // Movimiento orgánico flotante + sutil paralaje con el ratón
+    const breatheX = Math.sin(titleTime * 0.45) * 0.18 + (mouse.x * 0.35);
+    const breatheY = Math.cos(titleTime * 0.6) * 0.08 - (mouse.y * 0.22);
+    const breatheZ = Math.cos(titleTime * 0.35) * 0.15;
+
+    // Encuadre heroico: en apaisado, Aria se ubica en el tercio derecho
+    const camDist = isPortrait ? 4.5 : 3.6;
+    const camHeight = isPortrait ? 1.5 : 1.35;
+    const camOffsetX = isPortrait ? (0.2 + breatheX) : (1.35 + breatheX);
+    const camOffsetZ = camDist + breatheZ;
+
+    const targetCamPos = player.group.position.clone().add(
+      new THREE.Vector3(camOffsetX, camHeight + breatheY, camOffsetZ)
+    );
+
+    camera.position.lerp(targetCamPos, 1 - Math.pow(0.005, dt));
+
+    // Punto de mira desplazado para dejar espacio al menú a la izquierda
+    const lookOffsetX = isPortrait ? 0 : -0.7;
+    const lookTarget = player.group.position.clone().add(
+      new THREE.Vector3(lookOffsetX + breatheX * 0.1, 1.25, 0)
+    );
+    camera.lookAt(lookTarget);
+  } else if (cameraTransitionTimer > 0) {
+    cameraTransitionTimer = Math.max(0, cameraTransitionTimer - dt);
+    const progress = 1 - (cameraTransitionTimer / CAMERA_TRANSITION_DURATION);
+    const t = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+    const isPortrait = camera.aspect < 1;
+    const camOffset = isPortrait ? new THREE.Vector3(14, 26, 26) : new THREE.Vector3(12, 18, 18);
+    const gameplayCamPos = player.group.position.clone().add(camOffset);
+    const titleCamPos = player.group.position.clone().add(new THREE.Vector3(isPortrait ? 0.2 : 1.35, isPortrait ? 1.5 : 1.35, isPortrait ? 4.5 : 3.6));
+
+    camera.position.copy(titleCamPos.clone().lerp(gameplayCamPos, t));
+    const gameplayLook = player.group.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+    const titleLook = player.group.position.clone().add(new THREE.Vector3(isPortrait ? 0 : -0.7, 1.25, 0));
+    camera.lookAt(titleLook.clone().lerp(gameplayLook, t));
   } else {
     const isPortrait = camera.aspect < 1;
     const camOffset = isPortrait ? new THREE.Vector3(14, 26, 26) : new THREE.Vector3(12, 18, 18);
@@ -2210,6 +2266,7 @@ function startGame(isNew = false) {
   }
   mainMenuOverlay.classList.add("hidden");
   isGamePaused = false;
+  cameraTransitionTimer = CAMERA_TRANSITION_DURATION;
   if (!musicEngine.isPlaying) {
     musicEngine.start();
     musicEngine.setVolume(audioSettings.master * audioSettings.music);
@@ -2679,6 +2736,13 @@ canvas.addEventListener("pointermove", (e) => {
   }
 });
 
+window.addEventListener("pointermove", (e) => {
+  if (!mainMenuOverlay.classList.contains("hidden")) {
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  }
+});
+
 canvas.addEventListener("pointerdown", (e) => {
   initAudio();
   if (inspectMode) {
@@ -2756,6 +2820,7 @@ function animate(frameTime = performance.now()) {
     }
   } else if (player.heroine) {
     player.heroine.update(dt, false, null, false, null);
+    updateCrystals(dt);
     updateParticles(dt);
     updateShockwaves(dt);
     updateAmbientMotes(dt);

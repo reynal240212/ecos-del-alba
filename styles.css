@@ -1340,17 +1340,16 @@ kbd {
 }
 
 /* ==========================================================================
-   Pantalla de Inicio / Menú Principal AAA (Ecos del Alba - Aurora Studios)
+   Pantalla de Inicio / Menú Principal AAA (Ecos del Alba - 3D Real en Vivo)
    ========================================================================== */
 .menu-overlay {
   position: absolute;
   inset: 0;
   z-index: 1000;
   background:
-    linear-gradient(90deg, rgba(3, 10, 14, 0.94) 0%, rgba(5, 15, 20, 0.88) 45%, rgba(6, 18, 24, 0.55) 75%, rgba(3, 10, 14, 0.35) 100%),
-    radial-gradient(circle at 75% 45%, rgba(94, 244, 255, 0.16), transparent 60%),
-    url('assets/menu_hero_reference.png') center right / cover no-repeat;
-  backdrop-filter: blur(8px);
+    radial-gradient(circle at 70% 50%, rgba(4, 14, 18, 0.05) 0%, rgba(3, 10, 14, 0.4) 65%, rgba(2, 6, 8, 0.82) 100%),
+    linear-gradient(to right, rgba(3, 9, 12, 0.75) 0%, rgba(3, 9, 12, 0.35) 45%, transparent 75%);
+  pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -1371,19 +1370,20 @@ kbd {
   left: -10%;
   width: 50vw;
   height: 140vh;
-  background: radial-gradient(circle, rgba(62, 235, 247, 0.12), transparent 70%);
+  background: radial-gradient(circle, rgba(62, 235, 247, 0.08), transparent 70%);
   pointer-events: none;
 }
 
 .main-menu-card {
-  background: linear-gradient(155deg, rgba(12, 28, 35, 0.90), rgba(6, 16, 21, 0.96));
+  pointer-events: auto;
+  background: linear-gradient(155deg, rgba(8, 22, 28, 0.85), rgba(4, 12, 16, 0.94));
   border: 1px solid rgba(94, 244, 255, 0.35);
   border-radius: 18px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.82), 0 0 35px rgba(94, 244, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(16px);
-  max-width: 530px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 35px rgba(94, 244, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px);
+  max-width: 500px;
   width: 100%;
-  padding: 26px 26px 20px 26px;
+  padding: 24px 24px 18px 24px;
   animation: modalScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   z-index: 2;
