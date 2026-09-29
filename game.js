@@ -435,9 +435,9 @@ function getTerrainHeight(x, z) {
 }
 
 // Camera Modes & FPS Viewmodel
-let cameraMode = "fps";
+let cameraMode = "tpp";
 let cameraYaw = 0;
-let cameraPitch = 0;
+let cameraPitch = -0.12;
 let walkBob = 0;
 let isSprinting = false;
 let fpsViewModel = null;

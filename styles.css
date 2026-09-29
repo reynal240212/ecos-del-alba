@@ -1336,7 +1336,7 @@ kbd {
 /* ==========================================================================
    Pantalla de Inicio / Menú Principal AAA (Ecos del Alba - 3D Real en Vivo)
    ========================================================================== */
-.menu-overlay {
+.menu-overlay,
 .menu-overlay.cinematic-menu {
   position: absolute;
   inset: 0;
@@ -1348,6 +1348,14 @@ kbd {
   padding: 40px 60px;
   overflow: hidden;
   transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s ease;
+}
+
+/* Ocultar HUD de juego y barras secundarias mientras el menú principal esté activo */
+body:has(#main-menu-overlay:not(.hidden)) .hud,
+body:has(#main-menu-overlay:not(.hidden)) #controls-hint,
+body:has(#main-menu-overlay:not(.hidden)) #touch-controls,
+body:has(#main-menu-overlay:not(.hidden)) .reticle {
+  display: none !important;
 }
 
 .menu-overlay.hidden {
