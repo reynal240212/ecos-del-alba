@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { buildForestWorld } from "./forest-world.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createProtagonist, createProtagonistMaterials, createFPSViewModel } from "./character.js";
 
@@ -462,6 +463,8 @@ const player = {
   energy: 100,
   speed: 9.5,
   velocity: new THREE.Vector3(),
+  verticalVelocity: 0,
+  grounded: true,
   invulnerable: 0,
   shootCooldown: 0,
   specialCooldown: 0,
@@ -667,7 +670,7 @@ function createWorld() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  createPavedPathways();
+  buildForestWorld(scene, getTerrainHeight, addCircleCollider, isMobileDevice);
   createRuins(-22, -14, 0.2);
   createRuins(14, -12, -0.45);
   createRuins(24, 16, 0.72);
@@ -684,7 +687,6 @@ function createWorld() {
   createCrystalCluster(10, -20, 0xbd47ff);
 
   createPortal(34, -20);
-  createDetailedFlora();
   createRockFormations();
   createMountains();
   createAmbientMotes();
@@ -952,12 +954,10 @@ function initPlayer() {
   wardrobeManager.loadEquipped(profileManager.user.equipped);
 
   if (cameraMode === "fps") {
-    heroine.hips.visible = false;
-    heroine.arcoDeLuz.visible = false;
+    if (blenderHeroine) blenderHeroine.visible = false;
     if (fpsViewModel) fpsViewModel.fpsRig.visible = true;
   } else {
-    heroine.hips.visible = true;
-    heroine.arcoDeLuz.visible = true;
+    if (blenderHeroine) blenderHeroine.visible = true;
     if (fpsViewModel) fpsViewModel.fpsRig.visible = false;
   }
 
@@ -985,6 +985,7 @@ function loadBlenderCharacter() {
 
       blenderHeroine.position.set(0, 0, 0);
       blenderHeroine.scale.set(1.0, 1.0, 1.0);
+      blenderHeroine.visible = (cameraMode !== "fps");
 
       if (gltf.animations && gltf.animations.length > 0) {
         blenderMixer = new THREE.AnimationMixer(blenderHeroine);
@@ -996,13 +997,6 @@ function loadBlenderCharacter() {
           blenderActions["Idle"].play();
           activeBlenderAction = blenderActions["Idle"];
         }
-      }
-
-      // Ocultar mallas procedurales básicas y activar el modelo exportado de Blender
-      if (player && player.heroine && player.heroine.hips) {
-        player.heroine.hips.visible = false;
-        if (player.heroine.drone) player.heroine.drone.visible = false;
-        if (player.heroine.arcoDeLuz) player.heroine.arcoDeLuz.visible = false;
       }
 
       player.group.add(blenderHeroine);
@@ -1066,6 +1060,8 @@ function createCrystal(x, z) {
 // Level Loading, Enemies & Treasure Chest Spawning
 // ==========================================================================
 function loadLevel(levelNum) {
+  player.verticalVelocity = 0;
+  player.grounded = true;
   currentLevel = levelNum;
   levelCleared = false;
   levelBanner.classList.add("hidden");
@@ -1339,8 +1335,8 @@ function shoot() {
     cameraPitch = Math.min(1.2, cameraPitch + 0.025); // Snappy visual recoil
   } else {
     origin.copy(player.group.position).add(new THREE.Vector3(0, 1.5, 0));
-    direction.copy(aimPoint).sub(player.group.position);
-    direction.y = 0;
+    updateAim();
+    direction.copy(aimPoint).sub(origin);
     if (direction.lengthSq() < 0.01) direction.set(0, 0, -1);
     direction.normalize();
     player.heroine.playShootAnim();
@@ -1543,13 +1539,14 @@ function updateCompanionGuardian(dt) {
 
 function updateAim() {
   if (inspectMode || cameraMode === "fps") return;
-  raycaster.setFromCamera(mouse, camera);
-  raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), aimPoint);
-  const direction = aimPoint.clone().sub(player.group.position);
-  direction.y = 0;
-  if (direction.lengthSq() > 0.1) {
-    player.group.rotation.y = Math.atan2(direction.x, direction.z);
-  }
+  camera.getWorldDirection(aimPoint);
+  aimPoint.multiplyScalar(60).add(camera.position);
+}
+
+function jump() {
+  if (!player.grounded || isGamePaused || inspectMode || gameOver || gameFinished || isSettingsOpen || isWardrobeOpen || isProfileOpen || isLeaderboardOpen || isUpgradeOpen) return;
+  player.verticalVelocity = 7.5;
+  player.grounded = false;
 }
 
 function updatePlayer(dt) {
@@ -1579,6 +1576,7 @@ function updatePlayer(dt) {
       move.x += joystick.vector.x;
       move.z += joystick.vector.y;
     }
+    move.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraYaw);
   }
 
   const isMoving = move.lengthSq() > 0.01;
@@ -1586,12 +1584,24 @@ function updatePlayer(dt) {
 
   const targetVelocity = move.multiplyScalar(isMoving ? currentSpeed : 0);
   player.velocity.lerp(targetVelocity, 1 - Math.exp(-14 * dt));
+  const previousPosition = player.group.position.clone();
   player.group.position.addScaledVector(player.velocity, dt);
 
   resolveWorldCollision(player.group.position, 0.65);
+  const actualSpeed = Math.hypot(player.group.position.x - previousPosition.x, player.group.position.z - previousPosition.z) / Math.max(dt, 0.001);
 
   const terrainY = getTerrainHeight(player.group.position.x, player.group.position.z);
-  player.group.position.y = terrainY;
+  if (!player.grounded) {
+    player.verticalVelocity -= 22 * dt;
+    player.group.position.y += player.verticalVelocity * dt;
+    if (player.group.position.y <= terrainY && player.verticalVelocity <= 0) {
+      player.group.position.y = terrainY;
+      player.verticalVelocity = 0;
+      player.grounded = true;
+    }
+  } else {
+    player.group.position.y = terrainY;
+  }
 
   if (isMoving) {
     walkBob += dt * (isSprinting ? 14 : 10);
@@ -1605,30 +1615,23 @@ function updatePlayer(dt) {
 
   if (cameraMode === "fps") {
     if (blenderHeroine) blenderHeroine.visible = false;
-    player.heroine.hips.visible = false;
-    player.heroine.arcoDeLuz.visible = false;
     fpsViewModel.fpsRig.visible = !inspectMode;
     fpsViewModel.update(dt, isMoving, isSprinting ? 1.4 : 1.0);
     player.group.rotation.y = cameraYaw;
   } else {
-    if (blenderHeroine) {
-      blenderHeroine.visible = true;
-      player.heroine.hips.visible = false;
-      player.heroine.arcoDeLuz.visible = false;
-      if (player.heroine.drone) player.heroine.drone.visible = false;
-    } else {
-      player.heroine.hips.visible = true;
-      player.heroine.arcoDeLuz.visible = true;
-      if (player.heroine.drone) player.heroine.drone.visible = true;
-    }
+    if (blenderHeroine) blenderHeroine.visible = true;
     fpsViewModel.fpsRig.visible = false;
     updateAim();
+    const targetYaw = cameraYaw + Math.PI;
+    const turn = Math.atan2(Math.sin(targetYaw - player.group.rotation.y), Math.cos(targetYaw - player.group.rotation.y));
+    player.group.rotation.y += turn * (1 - Math.exp(-12 * dt));
     player.heroine.update(dt, isMoving, move, true, aimPoint, isSprinting ? 1.4 : 1.0);
   }
 
   // Actualización de animaciones esqueléticas de Blender (Idle, Run)
   if (blenderMixer) {
-    if (isMoving) {
+    if (actualSpeed > 0.15) {
+      if (blenderActions["Run"]) blenderActions["Run"].setEffectiveTimeScale(THREE.MathUtils.clamp(actualSpeed / player.speed, 0.35, 1.5));
       if (blenderActions["Run"] && activeBlenderAction !== blenderActions["Run"]) {
         if (activeBlenderAction) activeBlenderAction.fadeOut(0.2);
         blenderActions["Run"].reset().fadeIn(0.2).play();
@@ -1928,31 +1931,29 @@ function updateCamera(dt) {
     camera.rotation.y = cameraYaw;
     camera.rotation.x = cameraPitch;
   } else if (!mainMenuOverlay.classList.contains("hidden")) {
-    // Cámara cinemática 3D en tiempo real para el Menú Principal
+    // Cámara cinemática 3D inspirada en la referencia de Horizon / Aurora Studios
     const titleTime = performance.now() * 0.0006;
     const isPortrait = camera.aspect < 1;
 
-    // Movimiento orgánico flotante + sutil paralaje con el ratón
-    const breatheX = Math.sin(titleTime * 0.45) * 0.18 + (mouse.x * 0.35);
-    const breatheY = Math.cos(titleTime * 0.6) * 0.08 - (mouse.y * 0.22);
-    const breatheZ = Math.cos(titleTime * 0.35) * 0.15;
+    // Sutil paralaje cinemático con movimiento del ratón
+    const breatheX = Math.sin(titleTime * 0.45) * 0.08 + (mouse.x * 0.22);
+    const breatheY = Math.cos(titleTime * 0.6) * 0.05 - (mouse.y * 0.15);
+    const breatheZ = Math.cos(titleTime * 0.35) * 0.08;
 
-    // Encuadre heroico: en apaisado, Aria se ubica en el tercio derecho
-    const camDist = isPortrait ? 4.5 : 3.6;
-    const camHeight = isPortrait ? 1.5 : 1.35;
-    const camOffsetX = isPortrait ? (0.2 + breatheX) : (1.35 + breatheX);
-    const camOffsetZ = camDist + breatheZ;
+    // Encuadre 3/4 posterior (detrás del hombro izquierdo de Aria, contemplando el valle al amanecer)
+    const camBackDist = isPortrait ? 3.4 : 2.7;
+    const camHeight = isPortrait ? 1.55 : 1.42;
+    const camSideOffset = isPortrait ? -0.3 : -0.75;
 
     const targetCamPos = player.group.position.clone().add(
-      new THREE.Vector3(camOffsetX, camHeight + breatheY, camOffsetZ)
+      new THREE.Vector3(camSideOffset + breatheX, camHeight + breatheY, camBackDist + breatheZ)
     );
 
     camera.position.lerp(targetCamPos, 1 - Math.pow(0.005, dt));
 
-    // Punto de mira desplazado para dejar espacio al menú a la izquierda
-    const lookOffsetX = isPortrait ? 0 : -0.7;
+    // El punto de mira enfoca hacia el valle y el horizonte rúnico delante de Aria
     const lookTarget = player.group.position.clone().add(
-      new THREE.Vector3(lookOffsetX + breatheX * 0.1, 1.25, 0)
+      new THREE.Vector3(1.1 + breatheX * 0.08, 1.38, -3.2)
     );
     camera.lookAt(lookTarget);
   } else if (cameraTransitionTimer > 0) {
@@ -1960,15 +1961,29 @@ function updateCamera(dt) {
     const progress = 1 - (cameraTransitionTimer / CAMERA_TRANSITION_DURATION);
     const t = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
-    const isPortrait = camera.aspect < 1;
-    const camOffset = isPortrait ? new THREE.Vector3(14, 26, 26) : new THREE.Vector3(12, 18, 18);
-    const gameplayCamPos = player.group.position.clone().add(camOffset);
-    const titleCamPos = player.group.position.clone().add(new THREE.Vector3(isPortrait ? 0.2 : 1.35, isPortrait ? 1.5 : 1.35, isPortrait ? 4.5 : 3.6));
+    camera.rotation.order = 'YXZ';
+    camera.rotation.set(cameraPitch, cameraYaw, 0, 'YXZ');
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const pivot = player.group.position.clone().add(new THREE.Vector3(0, 1.65, 0));
+    const gameplayCamPos = pivot.clone().addScaledVector(forward, -4.0).addScaledVector(right, 0.4);
+    gameplayCamPos.y = Math.max(gameplayCamPos.y, getTerrainHeight(gameplayCamPos.x, gameplayCamPos.z) + 0.4);
 
+    const titleCamPos = player.group.position.clone().add(new THREE.Vector3(-0.75, 1.42, 2.7));
     camera.position.copy(titleCamPos.clone().lerp(gameplayCamPos, t));
-    const gameplayLook = player.group.position.clone().add(new THREE.Vector3(0, 1.2, 0));
-    const titleLook = player.group.position.clone().add(new THREE.Vector3(isPortrait ? 0 : -0.7, 1.25, 0));
+
+    const titleLook = player.group.position.clone().add(new THREE.Vector3(1.1, 1.38, -3.2));
+    const gameplayLook = player.group.position.clone().add(new THREE.Vector3(0, 1.4, 0));
     camera.lookAt(titleLook.clone().lerp(gameplayLook, t));
+  } else if (cameraMode === "tpp") {
+    camera.rotation.order = 'YXZ';
+    camera.rotation.set(cameraPitch, cameraYaw, 0, 'YXZ');
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const pivot = player.group.position.clone().add(new THREE.Vector3(0, 1.65, 0));
+    const desired = pivot.clone().addScaledVector(forward, -3.8).addScaledVector(right, 0.7);
+    desired.y = Math.max(desired.y, getTerrainHeight(desired.x, desired.z) + 0.4);
+    camera.position.lerp(desired, 1 - Math.exp(-18 * dt));
   } else {
     const isPortrait = camera.aspect < 1;
     const camOffset = isPortrait ? new THREE.Vector3(14, 26, 26) : new THREE.Vector3(12, 18, 18);
@@ -2029,16 +2044,20 @@ if (btnMusicToggle) {
 
 function toggleCameraMode() {
   cameraMode = cameraMode === "fps" ? "tpp" : "fps";
+  cameraPitch = cameraMode === 'tpp' ? -0.12 : 0;
+  canvas.tabIndex = 0;
+  canvas.focus({ preventScroll: true });
+  player.velocity.set(0, 0, 0);
   if (camToggleText) {
     camToggleText.textContent = cameraMode === "fps" ? "1ra Persona" : "3ra Persona";
   }
   showToast(cameraMode === "fps" ? "👁️ Vista: Primera Persona (FPS)" : "🏹 Vista: Tercera Persona (Isométrica)");
 
-  if (player.heroine) {
-    player.heroine.hips.visible = (cameraMode === "tpp");
-    player.heroine.arcoDeLuz.visible = (cameraMode === "tpp");
-    if (player.heroine.drone) player.heroine.drone.visible = (cameraMode === "tpp");
-    if (fpsViewModel) fpsViewModel.fpsRig.visible = (cameraMode === "fps" && !inspectMode);
+  if (blenderHeroine) {
+    blenderHeroine.visible = (cameraMode === "tpp");
+  }
+  if (fpsViewModel) {
+    fpsViewModel.fpsRig.visible = (cameraMode === "fps" && !inspectMode);
   }
 
   resizeGame();
@@ -2594,7 +2613,7 @@ function handleTouchMove(e) {
     if (joystick.active && t.identifier === joystick.identifier) {
       updateJoystick(t.clientX, t.clientY);
     }
-    if (cameraMode === "fps" && t.identifier === touchLookId) {
+    if (t.identifier === touchLookId) {
       const dx = t.clientX - prevTouchLook.x;
       const dy = t.clientY - prevTouchLook.y;
       cameraYaw -= dx * 0.005;
@@ -2654,6 +2673,12 @@ btnCamToggle.addEventListener("click", toggleCameraMode);
 function resetGame() {
   elapsed = 0;
   player.enemiesDefeated = 0;
+  player.health = player.maxHealth;
+  player.energy = 100;
+  player.velocity.set(0, 0, 0);
+  const startY = getTerrainHeight(-31, 18);
+  player.group.position.set(-31, startY, 18);
+  player.group.rotation.y = -0.38;
   gameOver = false;
   gameFinished = false;
   message.textContent = "";
@@ -2757,28 +2782,32 @@ document.addEventListener("fullscreenchange", () => {
 });
 
 canvas.addEventListener("click", () => {
-  if (!isGamePaused && cameraMode === "fps" && !inspectMode && !isLeaderboardOpen && !isUpgradeOpen && !isWardrobeOpen && !isSettingsOpen) {
-    try { canvas.requestPointerLock(); } catch (e) {}
+  if (!isGamePaused && !inspectMode && !isLeaderboardOpen && !isUpgradeOpen && !isWardrobeOpen && !isSettingsOpen) {
+    try { canvas.requestPointerLock()?.catch(() => {}); } catch (e) {}
   }
 });
 
 window.addEventListener("mousemove", (e) => {
-  if (document.pointerLockElement === canvas && cameraMode === "fps" && !inspectMode && !isGamePaused) {
+  if ((document.pointerLockElement === canvas || e.buttons === 2) && !inspectMode && !isGamePaused && !isSettingsOpen && !isWardrobeOpen && !isProfileOpen && !isLeaderboardOpen && !isUpgradeOpen) {
     cameraYaw -= e.movementX * audioSettings.mouseSensitivity;
     cameraPitch = THREE.MathUtils.clamp(cameraPitch - e.movementY * (audioSettings.mouseSensitivity * 0.9), -1.25, 1.25);
   }
 });
 
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
 window.addEventListener("keydown", (e) => {
+  if (e.target instanceof HTMLElement && (e.target.matches('input, textarea, select') || e.target.isContentEditable)) return;
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
   initAudio();
   const k = e.key.toLowerCase();
   keys.add(k);
 
-  if (e.key === " " && !inspectMode && !isGamePaused) { e.preventDefault(); shoot(); }
+  if (e.code === "Space" && !e.repeat) { e.preventDefault(); jump(); }
   if (e.key === "Shift") isSprinting = true;
   if (k === "e") tryOpenNearestChest();
   if (k === "q") triggerDroneShockwave();
-  if (k === "c") toggleCameraMode();
+  if (k === "c" && !e.repeat) toggleCameraMode();
   if (k === "m") toggleMusic();
   if (k === "f") toggleFullscreenLandscape();
   if (k === "b") openWardrobe();
@@ -2838,7 +2867,7 @@ canvas.addEventListener("pointerdown", (e) => {
   if (inspectMode) {
     isDragging = true;
     prevMousePos = { x: e.clientX, y: e.clientY };
-  } else if (e.pointerType === "mouse" && !isGamePaused) {
+  } else if (e.pointerType === "mouse" && e.button === 0 && !isGamePaused) {
     shoot();
   }
 });
@@ -2931,6 +2960,12 @@ function animate(frameTime = performance.now()) {
 }
 
 // Start Game Setup
+document.querySelector('#btn-touch-jump').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  jump();
+});
+
 createWorld();
 initPlayer();
 loadLevel(1);

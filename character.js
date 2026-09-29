@@ -423,207 +423,79 @@ export function createProtagonist() {
   root.name = "Protagonista Ecos del Alba";
   const mats = createProtagonistMaterials();
 
+  // Contenedores jerárquicos lógicos (el render 3D visible proviene al 100% de Blender GLTF)
   const hips = new THREE.Group();
+  hips.name = "hips_logic";
   hips.position.y = 1.35;
   root.add(hips);
 
-  const pelvis = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.25, 0.28, 12), mats.leatherDark);
-  hips.add(pelvis);
-
-  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.3, 0.18, 14), mats.leatherBrown);
-  belt.position.y = 0.08;
-  hips.add(belt);
-
-  const buckle = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.02, 8, 18), mats.armorMetal);
-  buckle.position.set(0, 0.08, 0.31);
-  hips.add(buckle);
-
-  [-0.32, 0.32].forEach((px, i) => {
-    const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.18), mats.leatherDark);
-    pouch.position.set(px, 0.04, 0.02);
-    pouch.rotation.z = (i === 0 ? 1 : -1) * 0.1;
-    hips.add(pouch);
-  });
-
-  const frontTasset = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.38, 0.04), mats.armorTrim);
-  frontTasset.position.set(0, -0.16, 0.28);
-  hips.add(frontTasset);
-
-  const leftTasset = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.44, 0.32), mats.tassetMat);
-  leftTasset.position.set(0.31, -0.14, 0);
-  leftTasset.rotation.z = -0.16;
-  hips.add(leftTasset);
-
-  const rightTasset = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.44, 0.32), mats.armorTrim);
-  rightTasset.position.set(-0.31, -0.14, 0);
-  rightTasset.rotation.z = 0.16;
-  hips.add(rightTasset);
-
   const torso = new THREE.Group();
-  torso.position.y = 0.18;
+  torso.name = "torso_logic";
   hips.add(torso);
 
-  const midriff = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.28, 0.26, 12), mats.skin);
-  midriff.position.y = 0.12;
-  torso.add(midriff);
-
-  const cuirassGeo = new THREE.CylinderGeometry(0.33, 0.28, 0.42, 14);
-  cuirassGeo.scale(1.15, 1, 0.85);
-  const cuirassMesh = new THREE.Mesh(cuirassGeo, mats.cuirass);
-  cuirassMesh.position.y = 0.42;
-  cuirassMesh.castShadow = true;
-  torso.add(cuirassMesh);
-
-  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.03, 8, 16), mats.runeGlow);
-  collar.rotation.x = Math.PI / 2;
-  collar.position.y = 0.63;
-  torso.add(collar);
-
-  [-0.38, 0.38].forEach((px, i) => {
-    const pauldronGroup = new THREE.Group();
-    pauldronGroup.position.set(px, 0.6, 0);
-    const dir = i === 0 ? -1 : 1;
-
-    const p1Geo = new THREE.SphereGeometry(0.16, 10, 8, 0, Math.PI);
-    p1Geo.scale(1, 0.7, 1.3);
-    const p1 = new THREE.Mesh(p1Geo, mats.armorMetal);
-    p1.rotation.z = dir * 0.4;
-    p1.rotation.y = Math.PI / 2;
-    pauldronGroup.add(p1);
-
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.03, 0.03), mats.runeGlow);
-    trim.position.set(dir * 0.04, 0.06, 0);
-    pauldronGroup.add(trim);
-    torso.add(pauldronGroup);
-  });
-
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.18, 10), mats.skin);
-  neck.position.y = 0.7;
-  torso.add(neck);
-
   const headGroup = new THREE.Group();
-  headGroup.position.y = 0.88;
+  headGroup.name = "headGroup_logic";
   torso.add(headGroup);
 
-  const headGeo = new THREE.SphereGeometry(0.24, 18, 14);
-  headGeo.scale(0.9, 1.05, 0.96);
-  const headMesh = new THREE.Mesh(headGeo, mats.faceMat);
-  headMesh.castShadow = true;
-  headGroup.add(headMesh);
-
-  const hairBaseGeo = new THREE.SphereGeometry(0.25, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.6);
-  hairBaseGeo.scale(0.94, 1.04, 0.98);
-  const hairBase = new THREE.Mesh(hairBaseGeo, mats.hair);
-  hairBase.position.set(0, 0.02, -0.02);
-  headGroup.add(hairBase);
-
-  // Ponytail segments
-  const ponytailKnot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.08, 8), mats.hairBead);
-  ponytailKnot.position.set(0, 0.19, -0.22);
-  ponytailKnot.rotation.x = -0.4;
-  headGroup.add(ponytailKnot);
-
-  const ponytailSegments = [];
-  let prevJoint = ponytailKnot;
-  for (let s = 0; s < 6; s++) {
-    const segGroup = new THREE.Group();
-    segGroup.position.set(0, s === 0 ? -0.05 : -0.12, s === 0 ? -0.04 : -0.02);
-    const radius = 0.046 * (1 - (s / 6) * 0.55);
-    const segMesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, 0.1, 6, 8), mats.hair);
-    segMesh.position.y = -0.05;
-    segGroup.add(segMesh);
-    prevJoint.add(segGroup);
-    ponytailSegments.push(segGroup);
-    prevJoint = segGroup;
-  }
-
-  // Arms
-  const arms = { left: {}, right: {} };
   const leftShoulder = new THREE.Group();
-  leftShoulder.position.set(0.4, 0.52, 0);
-  torso.add(leftShoulder);
-  arms.left.shoulder = leftShoulder;
-
-  const leftUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.36, 8), mats.skin);
-  leftUpperArm.position.y = -0.18;
-  leftShoulder.add(leftUpperArm);
-
-  const leftElbow = new THREE.Group();
-  leftElbow.position.y = -0.36;
-  leftShoulder.add(leftElbow);
-  arms.left.elbow = leftElbow;
-
-  const leftForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.065, 0.34, 8), mats.bracerMat);
-  leftForearm.position.y = -0.17;
-  leftElbow.add(leftForearm);
-
   const leftHand = new THREE.Group();
-  leftHand.position.y = -0.34;
-  leftElbow.add(leftHand);
-  arms.left.hand = leftHand;
-
-  const arcoDeLuz = buildArcoDeLuz(mats);
-  arcoDeLuz.position.set(0, -0.02, 0.1);
-  arcoDeLuz.rotation.set(0, Math.PI / 2, -Math.PI / 12);
-  leftHand.add(arcoDeLuz);
+  leftShoulder.add(leftHand);
+  torso.add(leftShoulder);
 
   const rightShoulder = new THREE.Group();
-  rightShoulder.position.set(-0.4, 0.52, 0);
   torso.add(rightShoulder);
-  arms.right.shoulder = rightShoulder;
 
-  const rightUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.36, 8), mats.skin);
-  rightUpperArm.position.y = -0.18;
-  rightShoulder.add(rightUpperArm);
+  const arcoDeLuz = new THREE.Group();
+  arcoDeLuz.name = "arcoDeLuz_logic";
+  arcoDeLuz.userData = {
+    arrow: new THREE.Group(),
+    blades: []
+  };
+  leftHand.add(arcoDeLuz);
 
-  const rightElbow = new THREE.Group();
-  rightElbow.position.y = -0.36;
-  rightShoulder.add(rightElbow);
-  arms.right.elbow = rightElbow;
-
-  const rightForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.065, 0.34, 8), mats.bracerMat);
-  rightForearm.position.y = -0.17;
-  rightElbow.add(rightForearm);
-
-  // Legs
-  const legs = { left: {}, right: {} };
-  [
-    { name: "left", pos: 0.18 },
-    { name: "right", pos: -0.18 },
-  ].forEach(({ name, pos }) => {
-    const hipJoint = new THREE.Group();
-    hipJoint.position.set(pos, -0.14, 0);
-    hips.add(hipJoint);
-    legs[name].hip = hipJoint;
-
-    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.5, 8), mats.leatherDark);
-    thigh.position.y = -0.25;
-    hipJoint.add(thigh);
-
-    const kneeJoint = new THREE.Group();
-    kneeJoint.position.y = -0.5;
-    hipJoint.add(kneeJoint);
-    legs[name].knee = kneeJoint;
-
-    const kneeCap = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.14), mats.armorMetal);
-    kneeCap.position.set(0, 0, 0.06);
-    kneeJoint.add(kneeCap);
-
-    const greave = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.085, 0.46, 8), mats.armorMetal);
-    greave.position.y = -0.23;
-    kneeJoint.add(greave);
-
-    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.28), mats.leatherBrown);
-    boot.position.set(0, -0.48, 0.05);
-    kneeJoint.add(boot);
-  });
-
-  // Companion Drone
-  const drone = buildCompanionDrone(mats);
+  // Companion Drone lógico (posicionado junto al hombro derecho de Aria, sin mallas procedurales flotantes)
+  const drone = new THREE.Group();
+  drone.name = "companion_drone_logic";
+  drone.position.set(0.55, 1.76, 0.28);
   root.add(drone);
-  drone.position.set(1.4, 2.8, -0.8);
 
-  // Visual Upgrades Aura Ring
+  const laserGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, 0, 8.0)
+  ]);
+  const laserMat = new THREE.LineBasicMaterial({ color: 0x5df8ff, transparent: true, opacity: 0 });
+  const laser = new THREE.Line(laserGeo, laserMat);
+  drone.add(laser);
+
+  const spotLight = new THREE.SpotLight(0x5df8ff, 3.8, 30, Math.PI / 6, 0.35);
+  spotLight.position.set(0, 0, 0.35);
+  const spotTarget = new THREE.Object3D();
+  spotTarget.position.set(0, 0, 10);
+  drone.add(spotLight);
+  drone.add(spotTarget);
+  spotLight.target = spotTarget;
+
+  const shieldBubble = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(1.65, 2),
+    new THREE.MeshBasicMaterial({ color: 0x5df8ff, transparent: true, opacity: 0.3, wireframe: true })
+  );
+  shieldBubble.visible = false;
+  drone.add(shieldBubble);
+
+  const droneLight = new THREE.PointLight(0x52f2fc, 2.0, 7);
+  droneLight.position.set(0, 0, 0.2);
+  drone.add(droneLight);
+
+  drone.userData = {
+    laser,
+    spotLight,
+    spotTarget,
+    shieldBubble,
+    shieldRing: shieldBubble,
+    light: droneLight,
+    finsGroup: new THREE.Group()
+  };
+
   const auraRing = new THREE.Mesh(
     new THREE.RingGeometry(0.65, 0.78, 32),
     new THREE.MeshBasicMaterial({ color: 0x5df8ff, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
@@ -633,89 +505,33 @@ export function createProtagonist() {
   auraRing.visible = false;
   root.add(auraRing);
 
-  let walkPhase = 0;
   let shootTimer = 0;
   let droneHoverTimer = 0;
 
   function playShootAnim() {
     shootTimer = 0.3;
-    arcoDeLuz.userData.arrow.visible = true;
   }
 
   function applyUpgrades({ bowLevel = 1, droneLevel = 1, armorLevel = 1 } = {}) {
-    // Bow Visual Upgrades
-    if (bowLevel >= 2) {
-      arcoDeLuz.scale.set(1.15, 1.15, 1.15);
-      arcoDeLuz.userData.blades.forEach((b) => b.scale.set(1.4, 1.1, 1.4));
-    }
-    if (bowLevel >= 3) {
-      arcoDeLuz.scale.set(1.28, 1.28, 1.28);
-    }
-
-    // Drone Visual Upgrades
     if (droneLevel >= 2) {
       if (drone.userData.shieldBubble) drone.userData.shieldBubble.visible = true;
       if (drone.userData.light) drone.userData.light.intensity = 3.5;
     }
-    if (droneLevel >= 3) {
-      drone.scale.set(1.2, 1.2, 1.2);
-    }
-
-    // Armor Visual Upgrades
-    if (armorLevel >= 2) {
-      mats.cuirass.emissiveIntensity = 2.2;
-      mats.bracerMat.emissiveIntensity = 2.2;
-      mats.tassetMat.emissiveIntensity = 2.2;
-    }
     if (armorLevel >= 3) {
       auraRing.visible = true;
-      mats.cuirass.emissiveIntensity = 3.2;
     }
   }
 
   function update(dt, isMoving, moveDir, isAiming, aimVec, speedRatio = isMoving ? 1 : 0) {
     droneHoverTimer += dt * 2.8;
-
     if (shootTimer > 0) {
       shootTimer -= dt;
-      const progress = Math.max(0, shootTimer / 0.3);
-      arcoDeLuz.userData.arrow.visible = progress > 0.1;
-      arcoDeLuz.userData.arrow.position.z = (1 - progress) * 0.4;
-      leftShoulder.rotation.set(1.4, 0.2, -0.4);
-      rightShoulder.rotation.set(1.2, -0.5, 0.7);
-    } else {
-      arcoDeLuz.userData.arrow.visible = false;
-      leftShoulder.rotation.set(0.4, 0.1, -0.25);
-      rightShoulder.rotation.set(-0.1, -0.1, 0.25);
     }
+    // Suave seguimiento del dron respecto a la pose de Aria
+    drone.position.x = 0.55 + Math.cos(droneHoverTimer * 0.7) * 0.04;
+    drone.position.y = 1.76 + Math.sin(droneHoverTimer) * 0.05;
+    drone.position.z = 0.28 + (isMoving ? -0.04 : 0);
 
-    if (isMoving) {
-      walkPhase += dt * 10;
-      const swing = Math.sin(walkPhase);
-      legs.left.hip.rotation.x = swing * 0.65;
-      legs.right.hip.rotation.x = -swing * 0.65;
-      legs.left.knee.rotation.x = Math.max(0, -swing * 0.7);
-      legs.right.knee.rotation.x = Math.max(0, swing * 0.7);
-      hips.position.y = 1.35 + Math.abs(Math.cos(walkPhase)) * 0.06;
-      torso.rotation.y = swing * 0.1;
-    } else {
-      legs.left.hip.rotation.set(0.04, 0, -0.04);
-      legs.right.hip.rotation.set(-0.04, 0, 0.04);
-      legs.left.knee.rotation.set(0.06, 0, 0);
-      legs.right.knee.rotation.set(0.06, 0, 0);
-      hips.position.y = 1.35 + Math.sin(droneHoverTimer * 0.8) * 0.02;
-    }
-
-    ponytailSegments.forEach((seg, i) => {
-      seg.rotation.x = -0.25 + Math.sin(droneHoverTimer + i * 0.3) * 0.08 + (isMoving ? 0.35 : 0);
-      seg.rotation.z = Math.sin(walkPhase + i * 0.2) * 0.08;
-    });
-
-    // Drone hovering physics
-    drone.position.x = 1.3 + Math.cos(droneHoverTimer * 0.7) * 0.12;
-    drone.position.y = 2.6 + Math.sin(droneHoverTimer) * 0.16;
-    drone.position.z = -0.7 + (isMoving ? -0.2 : 0);
-    drone.userData.finsGroup.rotation.z += dt * (isMoving ? 1.8 : 0.8);
     if (drone.userData.shieldBubble && drone.userData.shieldBubble.visible) {
       drone.userData.shieldBubble.rotation.z += dt * 2.5;
     }

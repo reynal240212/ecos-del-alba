@@ -185,6 +185,9 @@
             💥
             <span>Onda</span>
           </button>
+          <button id="btn-touch-jump" class="touch-btn touch-btn-sub" aria-label="Saltar">
+            ↑<span>Salto</span>
+          </button>
           <button id="btn-touch-shoot" class="touch-btn touch-btn-shoot" aria-label="Disparar">
             🏹
             <span>Disparo</span>
@@ -306,108 +309,92 @@
 
       <!-- 1. Pantalla de Inicio / Menú Principal -->
       <!-- 1. Menú Principal AAA (AURORA STUDIOS) -->
-      <div id="main-menu-overlay" class="menu-overlay">
-        <div class="menu-ambient-glow" aria-hidden="true"></div>
-        <div class="main-menu-card">
-          <!-- Cabecera de Marca Aurora Studios -->
-          <header class="menu-brand">
-            <div class="brand-tag-wrap">
-              <span class="sparkle">✦</span>
-              <span class="brand-tag">AURORA STUDIOS · HOJA DE REFERENCIA 3D</span>
-              <span class="sparkle">✦</span>
-            </div>
-            <h1 class="brand-title">ECOS DEL ALBA</h1>
-            <p class="brand-desc">ARCO DE LUZ · DRON COMPAÑERO · RUNAS ANCESTRALES</p>
-          </header>
-
-          <!-- Perfil Rápido de Jugadora -->
-          <div class="menu-profile-bar" id="menu-profile-bar">
-            <div class="menu-avatar-badge" id="menu-avatar-icon">🏹</div>
-            <div class="menu-profile-meta">
-              <div class="profile-meta-top">
-                <strong id="menu-player-name">Guerrera del Alba</strong>
-                <button id="btn-menu-switch-user" class="menu-switch-btn" title="Iniciar Sesión o Cambiar Usuario">👤 Cambiar</button>
-              </div>
-              <div class="menu-xp-line">
-                <span id="menu-player-level" class="pill-lvl">Nivel 1</span>
-                <span id="menu-player-xp" class="text-xp">0 / 150 XP</span>
-                <span class="pill-essence">💎 <span id="menu-player-essence">0</span></span>
-              </div>
-            </div>
+      <div id="main-menu-overlay" class="menu-overlay cinematic-menu">
+        <div class="menu-cinematic-vignette" aria-hidden="true"></div>
+        
+        <!-- Contenedor Lateral Izquierdo Cinemático -->
+        <div class="cinematic-menu-container">
+          <!-- Brackets Tecnológicos Superiores -->
+          <div class="menu-hud-brackets" aria-hidden="true">
+            <span class="hud-bracket-arm left"></span>
+            <span class="hud-bracket-core"></span>
+            <span class="hud-bracket-arm right"></span>
           </div>
 
-          <!-- Botonera Principal del Menú -->
-          <nav class="menu-action-buttons">
-            <button id="btn-start-game" class="menu-action-btn primary" title="Comenzar una nueva partida desde el inicio">
-              <span class="btn-icon">⚔️</span>
-              <div class="btn-content">
-                <span class="btn-title">NUEVA PARTIDA</span>
-                <span class="btn-subtitle">Comenzar desde el Nivel 1</span>
+          <!-- Perfil Sutil de Jugadora (Minimalista y elegante) -->
+          <div class="menu-user-badge" id="menu-profile-bar" title="Perfil de Jugador">
+            <span class="user-avatar-mini" id="menu-avatar-icon">🏹</span>
+            <div class="user-meta-wrap">
+              <span class="user-name-mini" id="menu-player-name">Guerrera del Alba</span>
+              <div class="user-sub-line">
+                <span class="user-lvl-pill" id="menu-player-level">Nv. 1</span>
+                <span class="user-xp-mini" id="menu-player-xp">0/150 XP</span>
+                <span class="user-essence-mini">💎 <span id="menu-player-essence">0</span></span>
               </div>
-              <span class="btn-arrow">→</span>
-            </button>
-
-            <button id="btn-continue-game" class="menu-action-btn secondary" title="Reanudar tu aventura actual">
-              <span class="btn-icon">💾</span>
-              <div class="btn-content">
-                <span class="btn-title">CONTINUAR PARTIDA</span>
-                <span class="btn-subtitle" id="btn-continue-sub">Reanudar progreso actual</span>
-              </div>
-              <span class="btn-arrow">→</span>
-            </button>
-
-            <button id="btn-open-gallery-menu" class="menu-action-btn highlight" title="Inspeccionar el modelo 3D de Aria y el Dron en 360 grados">
-              <span class="btn-icon">🏛️</span>
-              <div class="btn-content">
-                <span class="btn-title">EXTRA · GALERÍA DE MODELOS 3D</span>
-                <span class="btn-subtitle">Inspección de Aria, Dron y animación 360°</span>
-              </div>
-              <span class="btn-arrow">→</span>
-            </button>
-
-            <div class="menu-btn-grid">
-              <button id="btn-open-shop-menu" class="menu-action-btn grid-btn" title="Tienda de Avatar y Accesorios">
-                <span class="btn-icon">👗</span>
-                <div class="btn-content">
-                  <span class="btn-title">Tienda Avatar</span>
-                  <span class="btn-subtitle">Alas y trajes</span>
-                </div>
-              </button>
-
-              <button id="btn-open-records-menu" class="menu-action-btn grid-btn" title="Clasificación y Récords">
-                <span class="btn-icon">🏆</span>
-                <div class="btn-content">
-                  <span class="btn-title">Récords</span>
-                  <span class="btn-subtitle">Clasificación</span>
-                </div>
-              </button>
-
-              <button id="btn-open-settings-menu" class="menu-action-btn grid-btn" title="Ajustes de Sonido, Gráficos y Cámara">
-                <span class="btn-icon">⚙️</span>
-                <div class="btn-content">
-                  <span class="btn-title">Opciones</span>
-                  <span class="btn-subtitle">Audio y vídeo</span>
-                </div>
-              </button>
-
-              <button id="btn-open-credits-menu" class="menu-action-btn grid-btn" title="Historia y Créditos del Juego">
-                <span class="btn-icon">📜</span>
-                <div class="btn-content">
-                  <span class="btn-title">Créditos & Lore</span>
-                  <span class="btn-subtitle">Aurora Studios</span>
-                </div>
-              </button>
             </div>
+            <button id="btn-menu-switch-user" class="user-switch-mini" title="Cambiar Jugador">👤</button>
+          </div>
 
-            <button id="btn-menu-fullscreen" class="menu-action-btn util-btn" title="Alternar Pantalla Completa o Modo Horizontal">
-              <span class="btn-icon">⛶</span>
-              <span class="btn-title">Modo Horizontal / Pantalla Completa</span>
+          <!-- Lista de Opciones Cinemática (Exacta al Video) -->
+          <nav class="cinematic-nav-list" role="navigation">
+            <button id="btn-continue-game" class="cinematic-nav-item" title="Reanudar tu aventura">
+              <span class="nav-marker">◇</span>
+              <span class="nav-label">Continuar</span>
+            </button>
+
+            <button id="btn-start-game" class="cinematic-nav-item active primary" title="Comenzar una nueva partida">
+              <span class="nav-marker">✦</span>
+              <span class="nav-label">Nueva Partida</span>
+              <span class="nav-active-glow"></span>
+            </button>
+
+            <button id="btn-open-gallery-menu" class="cinematic-nav-item" title="Inspección 360° de Aria y Dron">
+              <span class="nav-marker">◇</span>
+              <span class="nav-label">Galería 3D</span>
+            </button>
+
+            <button id="btn-open-shop-menu" class="cinematic-nav-item" title="Tienda de Avatar y Trajes">
+              <span class="nav-marker">◇</span>
+              <span class="nav-label">Tienda Avatar</span>
+            </button>
+
+            <button id="btn-open-records-menu" class="cinematic-nav-item" title="Clasificación y Récords">
+              <span class="nav-marker">◇</span>
+              <span class="nav-label">Récords</span>
+            </button>
+
+            <button id="btn-open-settings-menu" class="cinematic-nav-item" title="Ajustes de Sonido y Gráficos">
+              <span class="nav-marker">◇</span>
+              <span class="nav-label">Ajustes</span>
+            </button>
+
+            <button id="btn-open-credits-menu" class="cinematic-nav-item" title="Créditos y Lore">
+              <span class="nav-marker">◇</span>
+              <span class="nav-label">Extras</span>
             </button>
           </nav>
+        </div>
 
-          <footer class="menu-footer-hint">
-            <span>Aurora Studios 2026 · Compatible con Teclado, Ratón y Táctil</span>
-          </footer>
+        <!-- Marca Aurora Studios (Esquina Inferior Izquierda) -->
+        <div class="menu-brand-footer">
+          <div class="aurora-emblem">
+            <svg viewBox="0 0 36 36" width="34" height="34" fill="none">
+              <polygon points="18,3 33,31 3,31" stroke="#5ef4ff" stroke-width="2.2" fill="rgba(94, 244, 255, 0.15)"/>
+              <polygon points="18,12 26,27 10,27" stroke="#5ef4ff" stroke-width="1.6" fill="rgba(94, 244, 255, 0.08)"/>
+              <circle cx="18" cy="22" r="2.8" fill="#5ef4ff"/>
+            </svg>
+          </div>
+          <div class="aurora-brand-text">
+            <span class="aurora-name">AURORA</span>
+            <span class="aurora-tag">STUDIOS</span>
+          </div>
+        </div>
+
+        <!-- Indicaciones de Control (Esquina Inferior Derecha) -->
+        <div class="menu-input-hints">
+          <span class="input-hint-item"><span class="hint-key">Clic / Enter</span> Iniciar</span>
+          <span class="input-hint-item"><span class="hint-key">V</span> Galería 3D</span>
+          <button id="btn-menu-fullscreen" class="menu-fs-btn" title="Pantalla Completa">⛶</button>
         </div>
       </div>
 
@@ -607,6 +594,7 @@
         <span><kbd>WASD</kbd> Mover</span>
         <span><kbd>Mouse</kbd> Apuntar</span>
         <span><kbd>Click</kbd> Disparar</span>
+        <span><kbd>Espacio</kbd> Saltar</span>
         <span><kbd>U</kbd> Mejoras</span>
         <span><kbd>T</kbd> Récords</span>
         <span><kbd>V</kbd> Modelo 3D</span>
